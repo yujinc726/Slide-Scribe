@@ -145,12 +145,16 @@ p {
     align-items: center;
     justify-content: space-between;
     height: 4rem;
+    /* Prevent overflow on mobile */
+    overflow: hidden;
 }
 
 .nav-left {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    /* Prevent shrinking */
+    flex-shrink: 0;
 }
 
 .sidebar-toggle {
@@ -189,6 +193,8 @@ p {
     font-size: var(--font-size-xl);
     color: var(--text-primary);
     text-decoration: none;
+    /* Prevent text from wrapping */
+    white-space: nowrap;
 }
 
 .brand-icon {
@@ -203,6 +209,9 @@ p {
     display: flex;
     align-items: center;
     gap: var(--spacing-lg);
+    /* Prevent overflow and allow shrinking if needed */
+    flex-shrink: 0;
+    min-width: 0;
 }
 
 .user-info {
@@ -211,11 +220,18 @@ p {
     gap: var(--spacing-sm);
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
+    /* Prevent text overflow */
+    white-space: nowrap;
+    overflow: hidden;
+    /* Reduce size on smaller screens */
+    min-width: 0;
 }
 
 .user-info i {
     font-size: var(--font-size-lg);
     color: var(--primary-solid);
+    /* Icon should always be visible */
+    flex-shrink: 0;
 }
 
 /* ===== Layout ===== */
@@ -808,21 +824,56 @@ p {
     }
 }
 
-/* Mobile breakpoint - Improved */
+/* Mobile breakpoint - Improved with bottom navigation */
 @media (max-width: 768px) {
+    /* Main container adjustments for bottom navigation */
     .main-container {
         flex-direction: column;
+        padding-bottom: 80px; /* Space for bottom navigation */
     }
     
-    /* Mobile sidebar - horizontal navigation */
+    /* Top navigation bar adjustments */
+    .nav-container {
+        padding: 0 var(--spacing-md);
+        height: 3.5rem;
+    }
+    
+    .nav-actions {
+        gap: var(--spacing-xs);
+    }
+    
+    /* Hide user info text, keep only icon on mobile */
+    .user-info span {
+        display: none;
+    }
+    
+    .user-info {
+        padding: var(--spacing-xs);
+        border-radius: var(--radius-sm);
+        transition: var(--transition);
+    }
+    
+    /* Prevent nav actions from overflowing */
+    .nav-actions {
+        flex-shrink: 0;
+        min-width: fit-content;
+    }
+    
+    /* Mobile sidebar - moved to bottom as fixed navigation */
     .sidebar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
         width: 100%;
-        height: auto;
-        position: static;
+        height: 70px;
+        background: var(--bg-primary);
+        border-top: 1px solid var(--border-color);
         border-right: none;
-        border-bottom: 1px solid var(--border-color);
-        padding: var(--spacing-sm) 0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 0;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        overflow: visible;
     }
     
     .sidebar-header {
@@ -831,14 +882,16 @@ p {
     
     .sidebar-nav {
         display: flex;
-        flex-direction: row;
+        height: 100%;
         overflow-x: auto;
         overflow-y: hidden;
         gap: 0;
-        padding: 0 var(--spacing-sm);
+        padding: 0;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none; /* Firefox */
         -ms-overflow-style: none; /* IE/Edge */
+        align-items: center;
+        justify-content: space-around;
     }
     
     .sidebar-nav::-webkit-scrollbar {
@@ -846,42 +899,60 @@ p {
     }
     
     .nav-item {
-        min-width: 100px;
-        flex-shrink: 0;
+        flex: 1;
+        min-width: 60px;
+        max-width: 80px;
         justify-content: center;
         text-align: center;
-        border-radius: var(--radius-md);
-        padding: var(--spacing-sm);
-        font-size: var(--font-size-xs);
+        border-radius: 0;
+        padding: var(--spacing-xs);
+        font-size: 0.65rem;
         font-weight: 600;
-        margin-right: var(--spacing-xs);
-        min-height: var(--touch-target);
+        margin: 0;
+        min-height: 70px;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 2px;
+        transition: var(--transition);
     }
     
     .nav-item:hover {
         transform: none;
-        background: var(--bg-tertiary);
+        background: var(--bg-secondary);
     }
     
     .nav-item.active {
         background: var(--primary);
         color: white;
-        box-shadow: var(--shadow);
+        position: relative;
+    }
+    
+    .nav-item.active::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 30px;
+        height: 3px;
+        background: white;
+        border-radius: 0 0 3px 3px;
     }
     
     .nav-item i {
-        font-size: var(--font-size-base);
+        font-size: 1.1rem;
         margin-bottom: 2px;
         width: auto;
     }
     
     .nav-item span {
         font-size: 0.6rem;
-        line-height: 1.2;
+        line-height: 1;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     
     .sidebar-toggle {
@@ -891,28 +962,49 @@ p {
     /* Content adjustments */
     .content {
         padding: var(--spacing-md);
-        min-height: calc(100vh - 4rem - 60px); /* Adjust for mobile nav height */
+        min-height: calc(100vh - 3.5rem - 70px); /* Adjust for top nav and bottom nav */
+        margin-bottom: 0;
     }
     
-    /* Navigation header adjustments */
-    .nav-container {
-        padding: 0 var(--spacing-md);
-        height: 3.5rem;
-    }
-    
-    .nav-actions {
-        gap: var(--spacing-sm);
-    }
-    
-    .user-info span {
-        display: none;
-    }
-    
-    /* Content grid improvements */
+    /* Fixed card spacing throughout the app */
     .content-grid {
         grid-template-columns: 1fr;
         gap: var(--spacing-md);
-        margin-bottom: var(--spacing-xl);
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .card {
+        margin-bottom: var(--spacing-md);
+        border-radius: var(--radius-md);
+    }
+    
+    .card:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Card header and body consistent spacing */
+    .card-header {
+        padding: var(--spacing-md);
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+    
+    .card-actions {
+        flex-direction: row;
+        gap: var(--spacing-sm);
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    
+    .card-actions .btn {
+        min-height: var(--touch-target-sm);
+        flex: 1;
+        min-width: 80px;
+    }
+    
+    .card-body {
+        padding: var(--spacing-md);
     }
     
     /* Timer specific adjustments */
@@ -956,36 +1048,7 @@ p {
     
     .timer-section {
         padding: var(--spacing-md);
-    }
-    
-    /* Card improvements for mobile */
-    .card {
         margin-bottom: var(--spacing-md);
-        border-radius: var(--radius-md);
-    }
-    
-    .card-header {
-        padding: var(--spacing-md);
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--spacing-sm);
-    }
-    
-    .card-actions {
-        flex-direction: row;
-        gap: var(--spacing-sm);
-        width: 100%;
-        flex-wrap: wrap;
-    }
-    
-    .card-actions .btn {
-        min-height: var(--touch-target-sm);
-        flex: 1;
-        min-width: 80px;
-    }
-    
-    .card-body {
-        padding: var(--spacing-md);
     }
     
     /* Form improvements */
@@ -1071,6 +1134,38 @@ p {
         padding: var(--spacing-md);
         margin-bottom: var(--spacing-md);
     }
+    
+    /* Consistent spacing for all sections */
+    .management-section {
+        margin-top: var(--spacing-md);
+        padding-top: var(--spacing-md);
+    }
+    
+    .stats-grid {
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .quick-actions {
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+    }
+    
+    /* Upload areas consistent spacing */
+    .upload-area,
+    .srt-upload-area {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    /* Results and preview sections */
+    .preview-section {
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .results-container {
+        margin-bottom: var(--spacing-md);
+    }
 }
 
 /* Small mobile devices */
@@ -1078,11 +1173,46 @@ p {
     /* Reduce spacing further for very small screens */
     .content {
         padding: var(--spacing-sm);
+        min-height: calc(100vh - 3rem - 70px); /* Account for smaller top nav */
     }
     
+    /* Top navigation for small screens */
+    .nav-container {
+        padding: 0 var(--spacing-sm);
+        height: 3rem;
+    }
+    
+    .nav-brand {
+        font-size: var(--font-size-lg);
+    }
+    
+    .brand-icon {
+        font-size: var(--font-size-xl);
+    }
+    
+    /* Bottom navigation adjustments */
+    .sidebar {
+        height: 65px; /* Slightly smaller on very small screens */
+    }
+    
+    .nav-item {
+        min-height: 65px;
+        padding: 4px var(--spacing-xs);
+        font-size: 0.6rem;
+    }
+    
+    .nav-item i {
+        font-size: 1rem;
+    }
+    
+    .nav-item span {
+        font-size: 0.55rem;
+    }
+    
+    /* Consistent card spacing */
     .content-grid {
         gap: var(--spacing-sm);
-        margin-bottom: var(--spacing-lg);
+        margin-bottom: var(--spacing-sm);
     }
     
     .card {
@@ -1121,6 +1251,7 @@ p {
     
     .timer-section {
         padding: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
     }
     
     .timer-controls-column {
@@ -1137,24 +1268,11 @@ p {
     .table-container {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        margin-bottom: var(--spacing-sm);
     }
     
     .data-table {
         min-width: 500px; /* Prevent table from being too compressed */
-    }
-    
-    /* Navigation improvements for very small screens */
-    .nav-container {
-        padding: 0 var(--spacing-sm);
-        height: 3rem;
-    }
-    
-    .nav-brand {
-        font-size: var(--font-size-lg);
-    }
-    
-    .brand-icon {
-        font-size: var(--font-size-xl);
     }
     
     /* Form adjustments */
@@ -1168,6 +1286,7 @@ p {
     .srt-upload-area {
         padding: var(--spacing-lg) var(--spacing-md);
         min-height: 120px;
+        margin-bottom: var(--spacing-sm);
     }
     
     .upload-area .upload-text h4,
@@ -1200,31 +1319,138 @@ p {
     .step-container p {
         font-size: var(--font-size-xs);
     }
+    
+    .selection-card {
+        padding: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    /* Consistent spacing for management sections */
+    .management-section {
+        margin-top: var(--spacing-sm);
+        padding-top: var(--spacing-sm);
+    }
+    
+    .stats-grid {
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .quick-actions {
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    /* Preview and results sections */
+    .preview-section {
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .results-container {
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .preview-item {
+        padding: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
 }
 
 /* Extra small devices (landscape phones) */
 @media (max-width: 360px) {
-    .nav-item {
-        min-width: 80px;
-        padding: var(--spacing-xs);
+    /* Bottom navigation for extra small screens */
+    .sidebar {
+        height: 60px; /* Even smaller for tiny screens */
     }
     
-    .nav-item span {
+    .nav-item {
+        min-width: 50px;
+        padding: 2px var(--spacing-xs);
+        min-height: 60px;
         font-size: 0.55rem;
     }
     
-    .content {
-        padding: var(--spacing-xs);
+    .nav-item i {
+        font-size: 0.9rem;
     }
     
+    .nav-item span {
+        font-size: 0.5rem;
+    }
+    
+    /* Content adjustments */
+    .content {
+        padding: var(--spacing-xs);
+        min-height: calc(100vh - 3rem - 60px); /* Account for smaller bottom nav */
+    }
+    
+    /* Card spacing */
     .card-header,
     .card-body {
         padding: var(--spacing-xs);
     }
     
+    /* Button sizing */
     .btn {
         padding: var(--spacing-xs) var(--spacing-sm);
         font-size: var(--font-size-xs);
+    }
+    
+    /* Grid spacing */
+    .content-grid {
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    /* All sections consistent spacing */
+    .card {
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .timer-section {
+        padding: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .management-section {
+        margin-top: var(--spacing-xs);
+        padding-top: var(--spacing-xs);
+    }
+    
+    .stats-grid {
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .quick-actions {
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .upload-area,
+    .srt-upload-area {
+        margin-bottom: var(--spacing-xs);
+        padding: var(--spacing-md) var(--spacing-sm);
+    }
+    
+    .preview-section {
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .results-container {
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .preview-item {
+        padding: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .selection-card {
+        padding: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
     }
 }
 
@@ -3328,5 +3554,132 @@ textarea.form-control {
         outline: 3px solid var(--primary-solid);
         outline-offset: 2px;
         box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.2);
+    }
+}
+
+/* ===== Mobile Navigation Improvements ===== */
+@media (max-width: 768px) {
+    /* Ensure proper navigation spacing and prevent overflow */
+    .nav-brand {
+        font-size: var(--font-size-lg);
+        gap: var(--spacing-xs);
+    }
+    
+    .brand-icon {
+        font-size: var(--font-size-xl);
+    }
+    
+    .nav-actions {
+        gap: var(--spacing-sm);
+    }
+    
+    /* Better user info layout */
+    .user-info {
+        padding: var(--spacing-xs);
+        border-radius: var(--radius-sm);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        min-width: 40px; /* Ensure minimum touch target */
+        justify-content: center;
+    }
+    
+    .user-info i {
+        font-size: var(--font-size-base);
+    }
+    
+    /* Make sure bottom navigation is always visible */
+    .sidebar {
+        position: fixed !important;
+        z-index: 1001;
+    }
+    
+    /* Ensure content doesn't get hidden behind bottom nav */
+    body {
+        padding-bottom: 80px;
+    }
+    
+    .main-container {
+        padding-bottom: 0; /* Remove duplicate padding */
+    }
+    
+    /* Improve touch targets for navigation items */
+    .nav-item {
+        position: relative;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .nav-item:active {
+        transform: scale(0.95);
+    }
+    
+    /* Better visual feedback for active states */
+    .nav-item.active::before {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+}
+
+/* ===== Consistent Spacing Variables for Mobile ===== */
+@media (max-width: 480px) {
+    :root {
+        /* Adjust spacing variables for small screens */
+        --mobile-spacing-xs: 0.125rem;
+        --mobile-spacing-sm: 0.25rem;
+        --mobile-spacing-md: 0.5rem;
+        --mobile-spacing-lg: 0.75rem;
+    }
+    
+    /* Apply mobile spacing to key elements */
+    .content-grid,
+    .stats-grid,
+    .quick-actions,
+    .preview-section {
+        gap: var(--mobile-spacing-md);
+        margin-bottom: var(--mobile-spacing-md);
+    }
+    
+    .card,
+    .timer-section,
+    .management-section,
+    .upload-area,
+    .srt-upload-area,
+    .results-container,
+    .preview-item,
+    .selection-card {
+        margin-bottom: var(--mobile-spacing-md);
+    }
+    
+    .card-header,
+    .card-body {
+        padding: var(--mobile-spacing-md);
+    }
+    
+    .timer-section,
+    .preview-item,
+    .selection-card {
+        padding: var(--mobile-spacing-md);
+    }
+}
+
+@media (max-width: 360px) {
+    /* Further reduce spacing for very small screens */
+    .content-grid,
+    .stats-grid,
+    .quick-actions,
+    .preview-section {
+        gap: var(--mobile-spacing-sm);
+        margin-bottom: var(--mobile-spacing-sm);
+    }
+    
+    .card,
+    .timer-section,
+    .management-section,
+    .upload-area,
+    .srt-upload-area,
+    .results-container,
+    .preview-item,
+    .selection-card {
+        margin-bottom: var(--mobile-spacing-sm);
     }
 } 
