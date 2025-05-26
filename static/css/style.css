@@ -2077,31 +2077,32 @@ textarea.form-control::placeholder {
     font-size: 12px;
 }
 
-.result-text-area {
-    width: 100%;
-    min-height: 120px;
-    resize: vertical;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    padding: var(--spacing-md);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: var(--font-size-sm);
-    line-height: 1.6;
-    color: var(--text-primary);
-    background: linear-gradient(135deg, #e6f3ff 0%, #f0f8ff 100%);
-    transition: all 0.3s ease;
-    outline: none;
+/* Enhanced Result Text Area Styling with High Priority */
+.slide-text textarea.result-text-area {
+    width: 100% !important;
+    min-height: 120px !important;
+    resize: vertical !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--border-radius) !important;
+    padding: var(--spacing-md) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: var(--font-size-sm) !important;
+    line-height: 1.6 !important;
+    color: var(--text-primary) !important;
+    background: linear-gradient(135deg, #e6f3ff 0%, #f0f8ff 100%) !important;
+    transition: all 0.3s ease !important;
+    outline: none !important;
 }
 
-.result-text-area:hover {
-    border-color: rgba(var(--primary-rgb), 0.4);
-    background: linear-gradient(135deg, #ddeeff 0%, #eaf4ff 100%);
+.slide-text textarea.result-text-area:hover {
+    border-color: rgba(102, 126, 234, 0.4) !important;
+    background: linear-gradient(135deg, #ddeeff 0%, #eaf4ff 100%) !important;
 }
 
-.result-text-area:focus {
-    border-color: var(--primary-solid);
-    background: linear-gradient(135deg, #d4edda 0%, #e8f5e8 100%);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+.slide-text textarea.result-text-area:focus {
+    border-color: #667eea !important;
+    background: linear-gradient(135deg, #d4edda 0%, #e8f5e8 100%) !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15) !important;
 }
 
 /* Empty State Styling */
@@ -2263,20 +2264,20 @@ textarea.form-control::placeholder {
 }
 
 [data-theme="dark"] .result-text-area {
-    background: linear-gradient(135deg, #1a2835 0%, #1e3045 100%);
-    border-color: var(--border-dark);
-    color: var(--text-primary);
+    background: linear-gradient(135deg, #1a2835 0%, #1e3045 100%) !important;
+    border-color: #495057 !important;
+    color: #ffffff !important;
 }
 
 [data-theme="dark"] .result-text-area:hover {
-    border-color: rgba(var(--primary-rgb), 0.4);
-    background: linear-gradient(135deg, #1e3045 0%, #224055 100%);
+    border-color: rgba(102, 126, 234, 0.4) !important;
+    background: linear-gradient(135deg, #1e3045 0%, #224055 100%) !important;
 }
 
 [data-theme="dark"] .result-text-area:focus {
-    background: linear-gradient(135deg, #1e3a2e 0%, #2a4d3a 100%);
-    border-color: var(--primary-solid);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+    background: linear-gradient(135deg, #1e3a2e 0%, #2a4d3a 100%) !important;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
 }
 
 [data-theme="dark"] .results-container .empty-state {
@@ -2461,10 +2462,10 @@ textarea.form-control::placeholder {
 }
 
 .slide-notes-editable:focus {
-    outline: none;
-    border-color: #d68910;
-    background: linear-gradient(135deg, #fff2d9 0%, #ffdd7a 100%);
-    box-shadow: 0 0 0 2px rgba(214, 137, 16, 0.2);
+    outline: none !important;
+    border-color: #d68910 !important;
+    background: linear-gradient(135deg, #fff2d9 0%, #ffdd7a 100%) !important;
+    box-shadow: 0 0 0 2px rgba(214, 137, 16, 0.2) !important;
 }
 
 /* ===== End SRT Parser Results Styling ===== */ 

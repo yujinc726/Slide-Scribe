@@ -371,8 +371,16 @@ class SlideScribeApp {
 
     initializeTimerTab() {
         // Reset to initial state if not already set up
-        if (this.currentStep !== 'timer') {
+        // 타이머가 이미 실행 중이거나 설정된 상태가 아닐 때만 리셋
+        if (this.currentStep !== 'timer' && !this.timerState.isRunning && this.timerState.pausedTime === 0) {
             this.resetToLectureSelection();
+        }
+        
+        // 타이머가 이미 설정되어 있다면 현재 상태 유지
+        if (this.currentStep === 'timer') {
+            // 타이머 디스플레이 업데이트
+            this.updateTimerDisplay();
+            this.updateTimerButton();
         }
     }
 
@@ -523,6 +531,7 @@ class SlideScribeApp {
 
     updateTimerButton() {
         const btn = document.getElementById('startStopBtn');
+        if (!btn) return;
         
         if (this.timerState.isRunning) {
             btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
@@ -539,7 +548,9 @@ class SlideScribeApp {
 
     updateTimerStatus(status) {
         const statusEl = document.getElementById('timerStatus');
-        statusEl.textContent = status;
+        if (statusEl) {
+            statusEl.textContent = status;
+        }
         
         // Update timer section classes for styling
         const timerSection = document.querySelector('.timer-section');
@@ -1315,6 +1326,13 @@ class SlideScribeApp {
         // Animate transition
         await this.animateStepTransition('recordSelectionStep', 'timerInterface');
         this.currentStep = 'timer';
+        
+        // 타이머 인터페이스가 표시된 후 UI 상태 업데이트
+        setTimeout(() => {
+            this.updateTimerButton();
+            this.updateTimerStatus('Ready to Start');
+            this.updateTimerDisplay();
+        }, 100);
         
         this.showToast('Timer interface ready!', 'success');
     }
@@ -3697,7 +3715,7 @@ class SlideScribeApp {
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new SlideScribeApp();
-    window.app.init(); // 이벤트 리스너 설정
+    // window.app.init(); 중복 제거 - constructor에서 이미 호출됨
     
     // Load saved dark mode preference
     const darkMode = localStorage.getItem('darkMode') === 'true';
