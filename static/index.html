@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide-Scribe</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation Header -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-left">
+                <div class="nav-brand">
+                    <i class="fas fa-sparkles brand-icon"></i>
+                    <span class="brand-text">Slide-Scribe</span>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Guest User</span>
+                </div>
+                <button class="btn btn-outline" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Login
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>Navigation</h3>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="home">
+                    <i class="fas fa-home"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="timer">
+                    <i class="fas fa-stopwatch"></i>
+                    <span>Slide Timer</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="transcriber">
+                    <i class="fas fa-microphone"></i>
+                    <span>Transcriber</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="parser">
+                    <i class="fas fa-file-alt"></i>
+                    <span>SRT Parser</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Home Tab -->
+            <div class="tab-content active" id="home-tab">
+                <div class="tab-header">
+                    <h1><i class="fas fa-home"></i> Welcome to Slide-Scribe</h1>
+                    <p>Your intelligent slide timing and transcription companion</p>
+                </div>
+
+                <!-- Lecture Management and JSON File Management -->
+                <div class="content-grid">
+                    <!-- Lecture List -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-university"></i> 강의 관리</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <input type="text" id="newLectureName" class="form-control" placeholder="강의명을 입력하세요">
+                                    <button class="btn btn-success" id="saveLectureBtn">
+                                        <i class="fas fa-plus"></i>
+                                        추가
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="lecture-grid" id="lectureGrid">
+                                <!-- Dynamic content -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- JSON File Management -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-file-code"></i> 타이머 기록 관리</h3>
+                        </div>
+                        <div class="card-body">
+                            <!-- Lecture Selection for JSON Management -->
+                            <div class="form-group">
+                                <label for="jsonLectureSelect">강의 선택</label>
+                                <select id="jsonLectureSelect" class="form-control">
+                                    <option value="">강의를 선택하세요</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Upload JSON -->
+                            <div class="management-section" id="jsonUploadSection" style="display: none;">
+                                <h4>타이머 기록 업로드</h4>
+                                <div class="upload-area" id="jsonUploadArea">
+                                    <div class="upload-icon">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <div class="upload-text">
+                                        <h5>JSON 파일을 여기에 드래그하세요</h5>
+                                        <p>또는 <span class="upload-link">browse files</span></p>
+                                        <small>JSON 파일만 허용됩니다</small>
+                                    </div>
+                                    <input type="file" id="jsonFileInput" accept=".json" hidden>
+                                </div>
+                                <button class="btn btn-primary" id="uploadJsonBtn" disabled>
+                                    <i class="fas fa-upload"></i>
+                                    JSON 파일 업로드
+                                </button>
+                            </div>
+                            
+                            <!-- JSON File List -->
+                            <div class="management-section" id="jsonFileSection" style="display: none;">
+                                <h4>타이머 기록 관리</h4>
+                                <div class="json-file-list" id="jsonFileList">
+                                    <!-- Dynamic content -->
+                                </div>
+                            </div>
+                            
+                            <!-- JSON Editor -->
+                            <div class="management-section" id="jsonEditorSection" style="display: none;">
+                                <div class="editor-header">
+                                    <h4>타이머 기록 편집</h4>
+                                    <div class="editor-actions">
+                                        <button class="btn btn-success btn-sm" id="saveJsonBtn">
+                                            <i class="fas fa-save"></i>
+                                            Save Changes
+                                        </button>
+                                        <button class="btn btn-secondary btn-sm" id="cancelEditBtn">
+                                            <i class="fas fa-times"></i>
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="json-editor-container">
+                                    <textarea id="jsonEditor" class="json-editor" rows="15"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dashboard Overview -->
+                <div class="content-grid">
+                    <!-- Quick Stats -->
+                    <div class="card stats-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-line"></i> Overview</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-value" id="totalLectures">0</div>
+                                    <div class="stat-label">Lectures</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="totalRecords">0</div>
+                                    <div class="stat-label">Records</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="totalSlides">0</div>
+                                    <div class="stat-label">Slides</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="totalTime">0h</div>
+                                    <div class="stat-label">Total Time</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="card quick-actions-card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="quick-actions">
+                                <button class="quick-action-btn" onclick="app.switchTab('timer')">
+                                    <i class="fas fa-stopwatch"></i>
+                                    <span>Start Timer</span>
+                                </button>
+                                <button class="quick-action-btn" onclick="app.switchTab('parser')">
+                                    <i class="fas fa-file-alt"></i>
+                                    <span>Parse SRT</span>
+                                </button>
+                                <button class="quick-action-btn" onclick="app.switchTab('transcriber')">
+                                    <i class="fas fa-microphone"></i>
+                                    <span>Transcribe</span>
+                                </button>
+                                <button class="quick-action-btn" id="addLectureQuick">
+                                    <i class="fas fa-plus"></i>
+                                    <span>New Lecture</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="activity-list" id="recentActivity">
+                                <div class="empty-state">
+                                    <i class="fas fa-clock"></i>
+                                    <p>No recent activity</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Tab -->
+            <div class="tab-content" id="timer-tab">
+                <div class="tab-header-compact">
+                    <h2><i class="fas fa-stopwatch"></i> Slide Timer</h2>
+                </div>
+                
+                <!-- Selection Info Header (initially hidden) -->
+                <div class="selection-info" id="selectionInfo" style="display: none;">
+                    <div class="selection-item">
+                        <i class="fas fa-book"></i>
+                        <div class="selection-details">
+                            <span class="selection-label">Lecture</span>
+                            <span class="selection-value" id="selectedLecture">-</span>
+                        </div>
+                        <button class="btn-change" onclick="app.changeLecture()" title="Change Lecture">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <div class="selection-item">
+                        <i class="fas fa-file-alt"></i>
+                        <div class="selection-details">
+                            <span class="selection-label">Record</span>
+                            <span class="selection-value" id="selectedRecord">-</span>
+                        </div>
+                        <button class="btn-change" onclick="app.changeRecord()" title="Change Record">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 1: Lecture Selection -->
+                <div class="setup-step" id="lectureSelectionStep">
+                    <div class="step-container">
+                        <div class="step-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <h3>Select a Lecture</h3>
+                        <p>슬라이드 타이머 기록을 위한 강의를 선택하세요.</p>
+                        <div class="selection-card">
+                            <select id="lectureSelect" class="form-control-large">
+                                <option value="">강의를 선택하세요</option>
+                            </select>
+                            <button class="btn btn-primary btn-large" id="selectLectureBtn" disabled>
+                                <i class="fas fa-arrow-right"></i>
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Record Selection -->
+                <div class="setup-step" id="recordSelectionStep" style="display: none;">
+                    <div class="step-container">
+                        <div class="step-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3>Select or Create Record</h3>
+                        <p>기존 타이머 기록을 선택하거나 새로 시작하세요.</p>
+                        <div class="selection-card">
+                            <select id="recordSelect" class="form-control-large">
+                                <option value="new">새 기록 시작</option>
+                            </select>
+                            <button class="btn btn-primary btn-large" id="selectRecordBtn">
+                                <i class="fas fa-play"></i>
+                                Start Timer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Timer Interface -->
+                <div class="timer-interface" id="timerInterface" style="display: none;">
+                    <div class="content-grid timer-layout">
+                        <!-- Left Column - Controls -->
+                        <div class="timer-controls-column">
+                            <!-- 슬라이드 정보 -->
+                            <div class="control-group">
+                                <div class="slide-info-row">
+                                    <div class="form-group slide-title-group">
+                                        <label for="slideTitle">강의안 파일명</label>
+                                        <input type="text" id="slideTitle" class="form-control" placeholder="슬라이드 제목을 입력하세요">
+                                    </div>
+                                    <div class="form-group slide-number-group">
+                                        <label for="slideNumber">슬라이드 번호</label>
+                                        <input type="number" id="slideNumber" class="form-control" value="1" min="1">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="startTime">시간 설정 (HH:MM:SS.mmm)</label>
+                                    <input type="text" id="startTime" class="form-control" value="00:00:00.000" placeholder="00:00:00.000">
+                                    <!-- <small class="form-text">타이머가 정지된 상태에서만 편집 가능</small> -->
+                                </div>
+                            </div>
+
+                            <!-- 타이머 컨트롤 -->
+                            <div class="control-group timer-section">
+                                <div class="timer-display">
+                                    <div class="time-value" id="timerDisplay">00:00:00.000</div>
+                                    <div class="timer-status" id="timerStatus">Press 'Start' to begin</div>
+                                </div>
+                                <div class="timer-buttons">
+                                    <button class="btn btn-primary" id="startStopBtn">
+                                        <i class="fas fa-play"></i>
+                                        Start
+                                    </button>
+                                    <button class="btn btn-secondary" id="resetBtn">
+                                        <i class="fas fa-redo"></i>
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 노트 및 기록 액션 -->
+                            <div class="control-group">
+                                <div class="form-group">
+                                    <label for="slideNotes">Notes</label>
+                                    <textarea id="slideNotes" class="form-control" rows="2" placeholder="이 슬라이드에 대한 메모를 추가하세요..."></textarea>
+                                </div>
+                                <div class="action-buttons">
+                                    <button class="btn btn-success btn-full btn-large" id="recordSlideBtn">
+                                        <i class="fas fa-plus"></i>
+                                        Record Time
+                                    </button>
+                                    <button class="btn btn-primary btn-full" id="saveRecordsBtn">
+                                        <i class="fas fa-save"></i>
+                                        Save All Records
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column - Recorded Slides Table -->
+                        <div class="timer-table-column">
+                            <div class="card recorded-slides-card">
+                                <div class="card-header">
+                                    <h3>Recorded Slides</h3>
+                                    <div class="card-actions">
+                                        <span class="record-count" id="recordCount">0개 슬라이드 기록됨</span>
+                                        <button class="btn btn-outline btn-sm" id="exportRecordsBtn">
+                                            <i class="fas fa-download"></i>
+                                            Export
+                                        </button>
+                                        <button class="btn btn-outline btn-sm" id="clearRecordsBtn">
+                                            <i class="fas fa-trash"></i>
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-container">
+                                        <table class="data-table" id="slidesTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Title</th>
+                                                    <th>Slide #</th>
+                                                    <th>Start Time</th>
+                                                    <th>End Time</th>
+                                                    <th>Notes</th>
+                                                    <th style="width: 40px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="slidesTableBody">
+                                                <tr class="empty-row">
+                                                    <td colspan="6" class="text-center">
+                                                        <div class="empty-state-inline">
+                                                            <i class="fas fa-clock"></i>
+                                                            <span>아직 기록된 슬라이드가 없습니다.</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transcriber Tab -->
+            <div class="tab-content" id="transcriber-tab">
+                <div class="tab-header-compact">
+                    <h2><i class="fas fa-microphone"></i> Transcriber</h2>
+                </div>
+                
+                <div class="content-grid">
+                    <!-- Upload Section -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Upload Audio File</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="upload-area" id="audioUpload">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <div class="upload-text">
+                                    <h4>오디오 파일을 여기에 드래그하세요</h4>
+                                    <p>또는 <span class="upload-link">파일 찾아보기</span></p>
+                                    <small>MP3, WAV, M4A 지원 (최대 500MB)</small>
+                                </div>
+                                <input type="file" id="audioFileInput" accept="audio/*" hidden>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transcription Settings -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Transcription Settings</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="modelSize">Model Size</label>
+                                <select id="modelSize" class="form-control">
+                                    <option value="base">Base (Fast)</option>
+                                    <option value="small">Small (Balanced)</option>
+                                    <option value="medium">Medium (Better Quality)</option>
+                                    <option value="large">Large (Best Quality)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="language">Language</label>
+                                <select id="language" class="form-control">
+                                    <option value="auto">Auto Detect</option>
+                                    <option value="ko">Korean</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="prompt">Custom Prompt</label>
+                                <textarea id="prompt" class="form-control" rows="2" placeholder="Optional: Add context for better transcription"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Transcription Progress</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text">Ready to start transcription</div>
+                        </div>
+                        <div class="transcription-actions">
+                            <button class="btn btn-primary" id="startTranscriptionBtn">
+                                <i class="fas fa-play"></i>
+                                Start Transcription
+                            </button>
+                            <button class="btn btn-outline" id="downloadSrtBtn" disabled>
+                                <i class="fas fa-download"></i>
+                                Download SRT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SRT Parser Tab -->
+            <div class="tab-content" id="parser-tab">
+                <div class="tab-header-compact">
+                    <h2><i class="fas fa-file-alt"></i> SRT Parser</h2>
+                </div>
+
+                <!-- Selection Info (appears after selections) -->
+                <div id="parserSelectionInfo" class="selection-info" style="display: none;">
+                    <div class="selection-item">
+                        <i class="fas fa-university"></i>
+                        <div class="selection-details">
+                            <span class="selection-label">Lecture:</span>
+                            <span class="selection-value" id="selectedParserLecture">-</span>
+                        </div>
+                        <button class="btn btn-sm btn-change" onclick="app.changeParserLecture()">Change</button>
+                    </div>
+                    <div class="selection-item">
+                        <i class="fas fa-clock"></i>
+                        <div class="selection-details">
+                            <span class="selection-label">Record:</span>
+                            <span class="selection-value" id="selectedParserRecord">-</span>
+                        </div>
+                        <button class="btn btn-sm btn-change" onclick="app.changeParserRecord()">Change</button>
+                    </div>
+                    <div class="selection-item">
+                        <i class="fas fa-file-alt"></i>
+                        <div class="selection-details">
+                            <span class="selection-label">SRT File:</span>
+                            <span class="selection-value" id="selectedSrtFile">-</span>
+                        </div>
+                        <button class="btn btn-sm btn-change" onclick="app.changeSrtFile()">Change</button>
+                    </div>
+                </div>
+                
+                <!-- Step 1: Lecture Selection -->
+                <div id="parserLectureSelectionStep" class="setup-step">
+                    <div class="step-container">
+                        <div class="step-icon">
+                            <i class="fas fa-university"></i>
+                        </div>
+                        <h3>Step 1: Select Lecture</h3>
+                        <p>타이머 기록을 포함한 강의를 선택하세요.</p>
+                        <div class="selection-card">
+                            <div class="form-group">
+                                <select id="parserLectureSelect" class="form-control form-control-large">
+                                    <option value="">강의를 선택하세요</option>
+                                </select>
+                            </div>
+                            <button id="selectParserLectureBtn" class="btn btn-large btn-primary" disabled>
+                                <i class="fas fa-arrow-right"></i>
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Record Selection -->
+                <div id="parserRecordSelectionStep" class="setup-step" style="display: none;">
+                    <div class="step-container">
+                        <div class="step-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <h3>Step 2: Select Timer Record</h3>
+                        <p>SRT 파일과 매치할 타이머 기록을 선택하세요.</p>
+                        <div class="selection-card">
+                            <div class="form-group">
+                                <select id="parserRecordSelect" class="form-control form-control-large">
+                                    <option value="">타이머 기록 선택</option>
+                                </select>
+                            </div>
+                            <button id="selectParserRecordBtn" class="btn btn-large btn-primary" disabled>
+                                <i class="fas fa-arrow-right"></i>
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: SRT File Upload -->
+                <div id="srtFileUploadStep" class="setup-step" style="display: none;">
+                    <div class="step-container">
+                        <div class="step-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3>Step 3: Upload SRT File</h3>
+                        <p>자막 파일(.srt)을 업로드하세요.</p>
+                        <div class="selection-card">
+                            <div class="srt-upload-area" id="srtUploadArea">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <div class="upload-text">
+                                    <h5>SRT 파일을 여기에 드래그하세요</h5>
+                                    <p>또는 <span class="upload-link">browse files</span></p>
+                                    <small>SRT 파일만 허용됩니다</small>
+                                </div>
+                                <input type="file" id="srtFileInput" accept=".srt" hidden>
+                            </div>
+                            <button id="uploadSrtBtn" class="btn btn-large btn-primary" disabled>
+                                <i class="fas fa-arrow-right"></i>
+                                Continue to Parse
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Parse Interface -->
+                <div id="parserInterface" class="setup-step" style="display: none;">
+                    <!-- Results -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Parsing Results</h3>
+                            <div class="card-actions">
+                                <button class="btn btn-outline btn-sm" id="exportResultsBtn" disabled>
+                                    <i class="fas fa-download"></i>
+                                    Export Results
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="results-container" id="resultsContainer">
+                                <div class="empty-state">
+                                    <i class="fas fa-search"></i>
+                                    <p>Parse files to see results here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-content" id="settings-tab">
+                <div class="tab-header-compact">
+                    <h2><i class="fas fa-cog"></i> Settings</h2>
+                </div>
+                
+                <!-- App Preferences -->
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-sliders-h"></i> Preferences</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="settings-group">
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label for="darkModeToggle">Dark Mode</label>
+                                        <small>Enable dark theme for better viewing</small>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="darkModeToggle">
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label for="autoSaveToggle">Auto Save</label>
+                                        <small>Automatically save timer records</small>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="autoSaveToggle" checked>
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label for="defaultTimerFormat">Timer Format</label>
+                                        <small>Default format for timer display</small>
+                                    </div>
+                                    <select id="defaultTimerFormat" class="form-control">
+                                        <option value="hms">HH:MM:SS</option>
+                                        <option value="hmsms">HH:MM:SS.mmm</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label for="notificationToggle">Notifications</label>
+                                        <small>Show toast notifications</small>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="notificationToggle" checked>
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Management -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-database"></i> Data Management</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="data-actions">
+                                <div class="action-group">
+                                    <h5>Export Data</h5>
+                                    <button class="btn btn-outline" id="exportAllDataBtn">
+                                        <i class="fas fa-download"></i>
+                                        Export All Data
+                                    </button>
+                                    <small>Download all lectures and records as a ZIP file</small>
+                                </div>
+                                
+                                <div class="action-group">
+                                    <h5>Import Data</h5>
+                                    <div class="import-section">
+                                        <input type="file" id="importDataInput" accept=".json,.zip" hidden>
+                                        <button class="btn btn-outline" id="importDataBtn">
+                                            <i class="fas fa-upload"></i>
+                                            Import Data
+                                        </button>
+                                        <small>Import JSON or ZIP files</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="action-group danger-zone">
+                                    <h5>Danger Zone</h5>
+                                    <button class="btn btn-danger" id="clearAllDataBtn">
+                                        <i class="fas fa-trash"></i>
+                                        Clear All Data
+                                    </button>
+                                    <small>This action cannot be undone</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login to Slide Scribe</h3>
+                <button class="modal-close" id="closeModalBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-auth-tab="login">Login</button>
+                    <button class="auth-tab" data-auth-tab="register">Register</button>
+                </div>
+                
+                <!-- Login Form -->
+                <form class="auth-form active" id="loginForm">
+                    <div class="form-group">
+                        <label for="loginUsername">Username</label>
+                        <input type="text" id="loginUsername" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login
+                    </button>
+                </form>
+
+                <!-- Register Form -->
+                <form class="auth-form" id="registerForm">
+                    <div class="form-group">
+                        <label for="registerUsername">Username</label>
+                        <input type="text" id="registerUsername" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-user-plus"></i>
+                        Register
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Table Editor Modal -->
+    <div class="modal" id="jsonTableModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="jsonTableTitle">Edit JSON File</h3>
+                <button class="modal-close" id="closeJsonTableBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="json-table-actions">
+                    <button class="btn btn-success btn-sm" id="addSlideBtn">
+                        <i class="fas fa-plus"></i>
+                        Add Slide
+                    </button>
+                    <button class="btn btn-primary btn-sm" id="saveJsonTableBtn">
+                        <i class="fas fa-save"></i>
+                        Save Changes
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="cancelJsonTableBtn">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                </div>
+                <div class="json-table-container">
+                    <table class="data-table" id="jsonDataTable">
+                        <thead>
+                            <tr>
+                                <th>Slide #</th>
+                                <th>Title</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jsonDataTableBody">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html> 
