@@ -906,7 +906,7 @@ p {
         overflow-x: auto;
         overflow-y: hidden;
         gap: 0;
-        padding: 0;
+        padding: 0 var(--spacing-xs); /* Add some horizontal padding if items are too cramped */
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none; /* Firefox */
         -ms-overflow-style: none; /* IE/Edge */
@@ -922,31 +922,37 @@ p {
     .nav-item {
         flex: 1;
         min-width: 60px;
-        max-width: 80px;
+        max-width: 85px; /* Slightly increased max-width */
         justify-content: center;
         text-align: center;
         border-radius: 0;
-        padding: var(--spacing-xs);
-        font-size: 0.65rem;
-        font-weight: 600;
+        padding: var(--spacing-xs) 4px; /* Adjusted padding */
+        font-size: 0.7rem; /* Increased font size for item text */
+        font-weight: 500; /* Slightly reduced font-weight for a cleaner look */
         margin: 0;
         min-height: 70px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 2px;
+        gap: 4px; /* Increased gap between icon and text */
         transition: var(--transition);
+        color: var(--text-secondary);
     }
     
     .nav-item:hover {
         transform: none;
-        background: var(--bg-secondary);
+        background: var(--bg-tertiary); /* Changed hover background for better feedback */
+        color: var(--primary-solid);
     }
     
     .nav-item.active {
         background: var(--primary);
         color: white;
         position: relative;
+    }
+    .nav-item.active:hover {
+        background: var(--primary); /* Keep active background on hover */
+        color: white;
     }
     
     .nav-item.active::before {
@@ -955,25 +961,41 @@ p {
         top: 0;
         left: 50%;
         transform: translateX(-50%);
-        width: 30px;
+        width: 35px; /* Slightly wider active indicator */
         height: 3px;
         background: white;
         border-radius: 0 0 3px 3px;
+        transition: width 0.2s ease-in-out; /* Added transition */
     }
     
     .nav-item i {
-        font-size: 1.1rem;
-        margin-bottom: 2px;
+        font-size: 1.2rem; /* Slightly larger icon size */
+        margin-bottom: 0; /* Removed margin as gap is used */
         width: auto;
+        transition: transform 0.2s ease-in-out;
+    }
+    .nav-item:hover i {
+        transform: scale(1.1); /* Subtle icon hover effect */
     }
     
     .nav-item span {
-        font-size: 0.6rem;
-        line-height: 1;
+        font-size: 0.7rem; /* Matched with nav-item font-size, ensure consistency */
+        line-height: 1.2;
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .sidebar-toggle {
+        display: none; /* Hide toggle button on mobile */
+    }
+
+    /* Content adjustments */
+    .content {
+        padding: var(--spacing-md);
+        min-height: calc(100vh - 3.5rem - 70px); /* Adjust for top nav and bottom nav */
+        margin-bottom: 0;
     }
 }
 
