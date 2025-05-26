@@ -7,6 +7,8 @@ class SlideScribeApp {
             baseTime: 0,  // 기준 시간 (밀리초)
             pausedTime: 0,  // 일시정지된 누적 시간
             lastStartTime: null,  // 마지막 시작 시간
+            currentSlide: 1,  // 현재 슬라이드 번호
+            sessionStartTime: '00:00:00.000'  // 세션 시작 시간
         };
         
         this.slides = [];
@@ -238,23 +240,43 @@ class SlideScribeApp {
         // Lecture selection
         const parserLectureSelect = document.getElementById('parserLectureSelect');
         if (parserLectureSelect) {
-            parserLectureSelect.addEventListener('change', (e) => this.onParserLectureSelectChange(e.target.value));
+            parserLectureSelect.addEventListener('change', (e) => {
+                const lectureName = e.target.value;
+                this.onParserLectureSelectChange(lectureName);
+                
+                const selectBtn = document.getElementById('selectParserLectureBtn');
+                if (selectBtn) {
+                    selectBtn.disabled = !lectureName;
+                }
+            });
         }
         
         const selectParserLectureBtn = document.getElementById('selectParserLectureBtn');
         if (selectParserLectureBtn) {
-            selectParserLectureBtn.addEventListener('click', () => this.proceedToParserRecordSelection());
+            selectParserLectureBtn.addEventListener('click', () => {
+                this.proceedToParserRecordSelection();
+            });
         }
         
         // Record selection
         const parserRecordSelect = document.getElementById('parserRecordSelect');
         if (parserRecordSelect) {
-            parserRecordSelect.addEventListener('change', (e) => this.onParserRecordSelectChange(e.target.value));
+            parserRecordSelect.addEventListener('change', (e) => {
+                const recordFile = e.target.value;
+                this.onParserRecordSelectChange(recordFile);
+                
+                const selectBtn = document.getElementById('selectParserRecordBtn');
+                if (selectBtn) {
+                    selectBtn.disabled = !recordFile;
+                }
+            });
         }
         
         const selectParserRecordBtn = document.getElementById('selectParserRecordBtn');
         if (selectParserRecordBtn) {
-            selectParserRecordBtn.addEventListener('click', () => this.proceedToSrtFileUpload());
+            selectParserRecordBtn.addEventListener('click', () => {
+                this.proceedToSrtFileUpload();
+            });
         }
         
         // SRT File Upload
@@ -268,7 +290,11 @@ class SlideScribeApp {
         
         if (srtUploadArea) {
             // Click to browse files
-            srtUploadArea.addEventListener('click', () => srtFileInput.click());
+            srtUploadArea.addEventListener('click', () => {
+                if (srtFileInput) {
+                    srtFileInput.click();
+                }
+            });
             
             // Drag and drop events
             srtUploadArea.addEventListener('dragover', (e) => {
@@ -293,19 +319,25 @@ class SlideScribeApp {
         }
         
         if (uploadSrtBtn) {
-            uploadSrtBtn.addEventListener('click', () => this.proceedToParserInterface());
+            uploadSrtBtn.addEventListener('click', () => {
+                this.proceedToParserInterface();
+            });
         }
         
         // Parse files button
         const parseFilesBtn = document.getElementById('parseFilesBtn');
         if (parseFilesBtn) {
-            parseFilesBtn.addEventListener('click', () => this.parseFiles());
+            parseFilesBtn.addEventListener('click', () => {
+                this.parseFiles();
+            });
         }
         
         // Export results button
         const exportResultsBtn = document.getElementById('exportResultsBtn');
         if (exportResultsBtn) {
-            exportResultsBtn.addEventListener('click', () => this.exportSrtResults());
+            exportResultsBtn.addEventListener('click', () => {
+                this.exportSrtResults();
+            });
         }
     }
 
@@ -342,6 +374,17 @@ class SlideScribeApp {
         if (this.currentStep !== 'timer') {
             this.resetToLectureSelection();
         }
+    }
+
+    initializeHomeTab() {
+        // Home 탭 초기화 - 통계 업데이트
+        this.updateHomeStats();
+    }
+
+    initializeSettingsTab() {
+        // Settings 탭 초기화 - 강의 목록 로드 및 설정 로드
+        this.loadLecturesForSettings();
+        this.loadPreferences();
     }
 
     // ===== Timer Logic =====
@@ -591,7 +634,6 @@ class SlideScribeApp {
                 <tr data-slide-index="${index}">
                     <td class="editable" data-field="slide_title" data-index="${index}">
                         ${slide.slide_title || 'Untitled'}
-                        <i class="fas fa-pencil-alt edit-indicator"></i>
                     </td>
                     <td class="editable" data-field="slide_number" data-index="${index}">
                         ${slide.slide_number || '-'}
@@ -1225,19 +1267,47 @@ class SlideScribeApp {
         // Sync record variables
         this.timerState.currentRecord = this.currentRecord;
         
-        // Update selection info
-        const recordText = this.currentRecord === 'new' ? 'New Session' : this.currentRecord;
+        // Update selection info - 새 기록일 때 '새 기록'으로 표시
+        const recordText = this.currentRecord === 'new' ? '새 기록' : this.currentRecord;
         document.getElementById('selectedRecord').textContent = recordText;
         
         // Load record content if existing record selected
         if (this.currentRecord !== 'new') {
             console.log('Loading existing record:', this.currentRecord);
             await this.loadRecordContent(this.currentRecord);
+            
+            // 기존 기록이 로드된 후, 마지막 슬라이드의 END TIME으로 타이머 설정
+            if (this.slides && this.slides.length > 0) {
+                const lastSlide = this.slides[this.slides.length - 1];
+                if (lastSlide && lastSlide.end_time) {
+                    const endTime = lastSlide.end_time;
+                    
+                    // 타이머 시작 시간을 마지막 기록의 END TIME으로 설정
+                    this.timerState.sessionStartTime = endTime;
+                    
+                    // 시간 설정 input 필드도 업데이트
+                    const startTimeInput = document.getElementById('startTime');
+                    if (startTimeInput) {
+                        startTimeInput.value = endTime;
+                    }
+                    
+                    console.log('Timer set to last slide END TIME:', endTime);
+                    this.showToast(`타이머가 마지막 기록 시간(${endTime})으로 설정되었습니다.`, 'info');
+                }
+            }
         } else {
             console.log('Starting new session - clearing slides');
-            // For new records, clear slides
+            // For new records, clear slides and reset timer
             this.slides = [];
             this.timerState.slides = [];
+            this.timerState.sessionStartTime = '00:00:00.000';
+            
+            // 새 기록일 때는 시간 설정을 기본값으로 리셋
+            const startTimeInput = document.getElementById('startTime');
+            if (startTimeInput) {
+                startTimeInput.value = '00:00:00.000';
+            }
+            
             this.updateSlidesTable();
             this.updateRecordCount();
         }
@@ -1322,8 +1392,8 @@ class SlideScribeApp {
         // Reset record selection
         document.getElementById('recordSelect').value = 'new';
         
-        // Update selection info
-        document.getElementById('selectedRecord').textContent = '-';
+        // Update selection info - 기본값을 '새 기록'으로 설정
+        document.getElementById('selectedRecord').textContent = '새 기록';
     }
 
     // ===== SRT Parser Functionality =====
@@ -1610,7 +1680,7 @@ class SlideScribeApp {
                 <h4>Parsing Results</h4>
                 <div class="results-meta">
                     <span class="meta-item"><i class="fas fa-list"></i> ${data.slide_count} slides</span>
-                    <span class="meta-item"><i class="fas fa-clock"></i> ${new Date(data.metadata.processed_at).toLocaleString()}</span>
+                    <span class="meta-item"><i class="fas fa-clock"></i> ${new Date().toLocaleString()}</span>
                 </div>
             </div>
             <div class="results-content">
@@ -1618,18 +1688,23 @@ class SlideScribeApp {
                     <div class="result-slide" data-slide-index="${index}">
                         <div class="slide-header">
                             <div class="slide-info">
+                                <span class="slide-title slide-title-editable" contenteditable="true" data-field="title">${result.slide_title || 'Untitled'}</span>
                                 <span class="slide-number">Slide ${result.slide_number}</span>
-                                <span class="slide-title">${result.slide_title || 'Untitled'}</span>
                             </div>
                             <div class="slide-time">
                                 <span class="time-range">${result.start_time} → ${result.end_time}</span>
                             </div>
                         </div>
                         <div class="slide-content">
-                            ${result.notes ? `<div class="slide-notes"><strong>Notes:</strong> ${result.notes}</div>` : ''}
-                            <div class="slide-text">
+                            <div class="slide-notes slide-notes-editable" contenteditable="true" data-field="notes">
+                                <strong>Notes:</strong> ${result.notes || ''}
+                            </div>
+                            <div class="slide-text" style="position: relative;">
                                 <label>Extracted Text:</label>
-                                <textarea class="result-text-area" rows="4" readonly>${result.text}</textarea>
+                                <button class="copy-button" onclick="app.copyText(this)" data-text="${result.text.replace(/"/g, '&quot;')}">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <textarea class="result-text-area" rows="4" data-field="text">${result.text}</textarea>
                             </div>
                         </div>
                     </div>
@@ -1638,6 +1713,9 @@ class SlideScribeApp {
         `;
         
         container.innerHTML = html;
+        
+        // Setup content editing listeners
+        this.setupResultsEditingListeners();
         
         // Enable export button
         const exportBtn = document.getElementById('exportResultsBtn');
@@ -1703,13 +1781,26 @@ class SlideScribeApp {
     }
 
     onParserLectureSelectChange(lectureName) {
+        console.log('=== onParserLectureSelectChange called ===');
+        console.log('lectureName:', lectureName);
+        
         this.srtParser.selectedLecture = lectureName;
         const selectBtn = document.getElementById('selectParserLectureBtn');
+        console.log('selectBtn found:', !!selectBtn);
+        if (selectBtn) {
         selectBtn.disabled = !lectureName;
+            console.log('selectBtn.disabled set to:', selectBtn.disabled);
+        }
     }
     
     async proceedToParserRecordSelection() {
-        if (!this.srtParser.selectedLecture) return;
+        console.log('=== proceedToParserRecordSelection called ===');
+        console.log('this.srtParser.selectedLecture:', this.srtParser.selectedLecture);
+        
+        if (!this.srtParser.selectedLecture) {
+            console.log('No lecture selected, returning');
+            return;
+        }
         
         // Update selection info
         document.getElementById('selectedParserLecture').textContent = this.srtParser.selectedLecture;
@@ -1724,6 +1815,8 @@ class SlideScribeApp {
         // Show selection info
         const selectionInfo = document.getElementById('parserSelectionInfo');
         selectionInfo.style.display = 'flex';
+        
+        console.log('proceedToParserRecordSelection completed');
     }
     
     async loadRecordsForParser() {
@@ -1968,7 +2061,6 @@ class SlideScribeApp {
                 <div class="results-meta">
                     <span class="meta-item"><i class="fas fa-list"></i> ${results.length} slides</span>
                     <span class="meta-item"><i class="fas fa-clock"></i> ${new Date().toLocaleString()}</span>
-                    <span class="meta-item"><i class="fas fa-file"></i> ${this.srtParser.selectedFile.name}</span>
                 </div>
             </div>
             <div class="results-content">
@@ -1976,8 +2068,8 @@ class SlideScribeApp {
                     <div class="result-slide" data-slide-index="${index}">
                         <div class="slide-header">
                             <div class="slide-info">
+                                <span class="slide-title slide-title-editable" contenteditable="true" data-field="title">${result.slide_title}</span>
                                 <span class="slide-number">Slide ${result.slide_number}</span>
-                                <span class="slide-title">${result.slide_title}</span>
                             </div>
                             <div class="slide-time">
                                 <span class="time-range">${result.start_time} → ${result.end_time}</span>
@@ -1985,10 +2077,15 @@ class SlideScribeApp {
                             </div>
                         </div>
                         <div class="slide-content">
-                            ${result.notes ? `<div class="slide-notes"><strong>Notes:</strong> ${result.notes}</div>` : ''}
-                            <div class="slide-text">
+                            <div class="slide-notes slide-notes-editable" contenteditable="true" data-field="notes">
+                                <strong>Notes:</strong> ${result.notes || ''}
+                            </div>
+                            <div class="slide-text" style="position: relative;">
                                 <label>Extracted Text:</label>
-                                <textarea class="result-text-area" rows="4" readonly>${result.text}</textarea>
+                                <button class="copy-button" onclick="app.copyText(this)" data-text="${result.text.replace(/"/g, '&quot;')}">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <textarea class="result-text-area" rows="4" data-field="text">${result.text}</textarea>
                             </div>
                         </div>
                     </div>
@@ -1997,6 +2094,9 @@ class SlideScribeApp {
         `;
         
         container.innerHTML = html;
+        
+        // Setup content editing listeners
+        this.setupResultsEditingListeners();
         
         // Store results for export
         this.srtParser.parseResults = results;
@@ -2166,560 +2266,8 @@ class SlideScribeApp {
     // ===== HOME TAB FUNCTIONALITY =====
     
     setupHomeListeners() {
-        console.log('Setting up home listeners...'); // 확인용 로그 추가
-        
-        // Add lecture functionality
-        const saveLectureBtn = document.getElementById('saveLectureBtn');
-        const newLectureName = document.getElementById('newLectureName');
-        const addLectureQuick = document.getElementById('addLectureQuick');
-
-        if (saveLectureBtn) {
-            saveLectureBtn.addEventListener('click', () => {
-                this.addLectureFromHome();
-            });
-        }
-
-        if (newLectureName) {
-            newLectureName.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.addLectureFromHome();
-                }
-            });
-        }
-
-        if (addLectureQuick) {
-            addLectureQuick.addEventListener('click', () => {
-                this.showAddLectureDialog();
-            });
-        }
-
-        // JSON file management - 새로 구현
-        this.setupJsonFileManagement();
-    }
-
-    setupJsonFileManagement() {
-        const jsonLectureSelect = document.getElementById('jsonLectureSelect');
-        const jsonFileInput = document.getElementById('jsonFileInput');
-        const jsonUploadArea = document.getElementById('jsonUploadArea');
-        const uploadJsonBtn = document.getElementById('uploadJsonBtn');
-        
-        // 강의 선택 이벤트
-        if (jsonLectureSelect) {
-            jsonLectureSelect.addEventListener('change', (e) => {
-                const selectedLecture = e.target.value;
-                this.homeState.selectedJsonLecture = selectedLecture;
-                
-                const uploadSection = document.getElementById('jsonUploadSection');
-                const fileSection = document.getElementById('jsonFileSection');
-                
-                if (selectedLecture) {
-                    if (uploadSection) uploadSection.style.display = 'block';
-                    if (fileSection) fileSection.style.display = 'block';
-                    this.loadJsonFiles(selectedLecture);
-                    // 강의 변경 시 업로드 영역 리셋
-                    this.resetJsonUploadArea();
-                } else {
-                    if (uploadSection) uploadSection.style.display = 'none';
-                    if (fileSection) fileSection.style.display = 'none';
-                }
-            });
-        }
-        
-        // 파일 선택 이벤트
-        if (jsonFileInput) {
-            jsonFileInput.addEventListener('change', (e) => this.handleJsonFileSelect(e));
-        }
-        
-        // 드래그 앤 드롭 - SRT Parser와 완전히 동일하게
-        if (jsonUploadArea) {
-            // 클릭해서 파일 선택
-            jsonUploadArea.addEventListener('click', () => jsonFileInput.click());
-
-            // 드래그 오버
-            jsonUploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                jsonUploadArea.classList.add('drag-over');
-            });
-
-            // 드래그 떠남
-            jsonUploadArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                jsonUploadArea.classList.remove('drag-over');
-            });
-
-            // 파일 드롭
-            jsonUploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                jsonUploadArea.classList.remove('drag-over');
-                
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    this.handleJsonFileSelect({ target: { files } });
-                }
-            });
-        }
-
-        // 업로드 버튼
-        if (uploadJsonBtn) {
-            uploadJsonBtn.addEventListener('click', () => {
-                this.handleJsonUpload();
-            });
-        }
-    }
-
-    handleJsonFileSelect(event) {
-        const file = event.target.files[0];
-        
-        if (!file) return;
-        
-        // 파일 타입 검증 - SRT Parser와 동일한 방식
-        if (!file.name.toLowerCase().endsWith('.json')) {
-            this.showToast('Please select a valid JSON file', 'error');
-            return;
-        }
-        
-        // 강의 선택 확인
-        if (!this.homeState.selectedJsonLecture) {
-            this.showToast('Please select a lecture first', 'error');
-            return;
-        }
-        
-        // 파일 저장
-        this.homeState.selectedJsonFile = file;
-        
-        // UI 업데이트 - SRT Parser와 완전히 동일한 방식
-        const uploadArea = document.getElementById('jsonUploadArea');
-        const uploadBtn = document.getElementById('uploadJsonBtn');
-        
-        if (uploadArea) {
-            uploadArea.classList.add('file-selected');
-            uploadArea.innerHTML = `
-                <div class="upload-icon">
-                    <i class="fas fa-file-code"></i>
-                </div>
-                <div class="upload-text">
-                    <h5>${file.name}</h5>
-                    <p>File selected successfully</p>
-                    <small>Size: ${(file.size / 1024).toFixed(2)} KB</small>
-                </div>
-            `;
-        }
-        
-        if (uploadBtn) {
-            uploadBtn.disabled = false;
-            uploadBtn.innerHTML = '<i class="fas fa-arrow-right"></i> Upload JSON File';
-        }
-        
-        this.showToast('JSON file selected successfully', 'success');
-    }
-
-    async handleJsonUpload() {
-        const file = this.homeState.selectedJsonFile;
-        const selectedLecture = this.homeState.selectedJsonLecture;
-        
-        if (!file || !selectedLecture) {
-            this.showToast('Please select a file and lecture', 'error');
-            return;
-        }
-        
-        try {
-            const content = await this.readFileContent(file);
-            const jsonData = JSON.parse(content);
-            
-            if (!Array.isArray(jsonData)) {
-                throw new Error('JSON file must contain an array of slides');
-            }
-            
-            // localStorage에 저장
-            const recordName = file.name.replace('.json', '');
-            this.saveStoredRecord(selectedLecture, recordName, jsonData);
-            
-            this.showToast(`File "${file.name}" uploaded successfully!`, 'success');
-            
-            // UI 리셋
-            this.resetJsonUploadArea();
-            
-            // 파일 목록 새로고침
-            this.loadJsonFiles(selectedLecture);
-            
-            // 대시보드 통계 새로고침
-            this.loadDashboardStats();
-            
-        } catch (error) {
-            console.error('JSON upload error:', error);
-            if (error instanceof SyntaxError) {
-                this.showToast('Invalid JSON file format', 'error');
-            } else {
-                this.showToast('Failed to upload file: ' + error.message, 'error');
-            }
-        }
-    }
-
-    resetJsonUploadArea() {
-        const uploadArea = document.getElementById('jsonUploadArea');
-        const uploadBtn = document.getElementById('uploadJsonBtn');
-        const fileInput = document.getElementById('jsonFileInput');
-        
-        // 선택된 파일 초기화
-        this.homeState.selectedJsonFile = null;
-        
-        if (fileInput) {
-            fileInput.value = '';
-        }
-        
-        if (uploadArea) {
-            uploadArea.classList.remove('file-selected', 'drag-over');
-            uploadArea.innerHTML = `
-                <div class="upload-icon">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                </div>
-                <div class="upload-text">
-                    <h5>JSON 파일을 여기에 드래그하세요</h5>
-                    <p>또는 <span class="upload-link">browse files</span></p>
-                    <small>JSON 파일만 허용됩니다</small>
-                </div>
-            `;
-        }
-        
-        if (uploadBtn) {
-            uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<i class="fas fa-upload"></i> JSON 파일 업로드';
-        }
-    }
-
-    readFileContent(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result);
-            reader.onerror = reject;
-            reader.readAsText(file);
-        });
-    }
-
-    loadJsonFiles(lectureName) {
-        const records = this.getStoredRecords(lectureName);
-        const jsonFileList = document.getElementById('jsonFileList');
-        
-        if (!jsonFileList) return;
-        
-        if (!records || Object.keys(records).length === 0) {
-            jsonFileList.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-file-code"></i>
-                    <p>이 강의에 JSON 파일이 없습니다</p>
-                </div>
-            `;
-            return;
-        }
-        
-        const recordNames = Object.keys(records);
-        jsonFileList.innerHTML = recordNames.map(recordName => {
-            const data = records[recordName];
-            const slideCount = Array.isArray(data) ? data.length : 0;
-            
-            return `
-                <div class="json-file-item">
-                    <div class="json-file-info">
-                        <div class="json-file-icon"><i class="fas fa-file-code"></i></div>
-                        <div class="json-file-details">
-                            <div class="json-file-name">${recordName}</div>
-                            <div class="json-file-meta">${slideCount} slides</div>
-                        </div>
-                    </div>
-                    <div class="json-file-actions">
-                        <button class="btn btn-sm btn-outline" onclick="app.downloadRecord('${lectureName}', '${recordName}')">
-                            <i class="fas fa-download"></i> Download
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteRecord('${lectureName}', '${recordName}')">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    downloadRecord(lectureName, recordName) {
-        const records = this.getStoredRecords(lectureName);
-        const data = records[recordName];
-        
-        if (data) {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${recordName}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-    }
-
-    deleteRecord(lectureName, recordName) {
-        if (confirm(`"${recordName}" 기록을 삭제하시겠습니까?`)) {
-            this.deleteStoredRecord(lectureName, recordName);
-            this.loadJsonFiles(lectureName);
-            this.showToast('기록이 삭제되었습니다', 'success');
-        }
-    }
-
-    async loadLecturesForSettings() {
-        const lectures = this.getStoredLectures();
-        const jsonLectureSelect = document.getElementById('jsonLectureSelect');
-        
-        if (jsonLectureSelect) {
-            jsonLectureSelect.innerHTML = '<option value="">강의를 선택하세요</option>';
-            lectures.forEach(lecture => {
-                const option = document.createElement('option');
-                option.value = lecture;
-                option.textContent = lecture;
-                jsonLectureSelect.appendChild(option);
-            });
-        }
-    }
-
-    async initializeHomeTab() {
-        console.log('Initializing Home tab...');
-        await this.loadDashboardStats();
-        await this.loadLectureList();
-        await this.loadRecentActivity();
-        await this.loadLecturesForSettings(); // Load lectures for JSON management
-    }
-
-    async initializeSettingsTab() {
-        console.log('Initializing Settings tab...');
-        this.loadPreferences();
-    }
-
-    async loadDashboardStats() {
-        try {
-            // Try to get stats from API first
-            const response = await fetch('/api/stats');
-            if (response.ok) {
-                const stats = await response.json();
-                this.homeState.stats = stats;
-            } else {
-                // Fallback to manual calculation
-                await this.calculateStatsManually();
-            }
-            this.updateStatsDisplay();
-        } catch (error) {
-            console.warn('Could not load stats from API, calculating manually:', error);
-            await this.calculateStatsManually();
-            this.updateStatsDisplay();
-        }
-    }
-
-    async calculateStatsManually() {
-        try {
-            // Get lectures
-            const lecturesResponse = await fetch('/api/lectures');
-            const lectures = lecturesResponse.ok ? await lecturesResponse.json() : [];
-            
-            let totalRecords = 0;
-            let totalSlides = 0;
-            let totalTimeMs = 0;
-
-            // Calculate stats for each lecture
-            for (const lecture of lectures) {
-                try {
-                    const recordsResponse = await fetch(`/api/lectures/${encodeURIComponent(lecture)}/records`);
-                    if (recordsResponse.ok) {
-                        const records = await recordsResponse.json();
-                        totalRecords += records.length;
-
-                        // Load each record to count slides and time
-                        for (const record of records) {
-                            try {
-                                const recordResponse = await fetch(`/api/lectures/${encodeURIComponent(lecture)}/records/${encodeURIComponent(record)}`);
-                                if (recordResponse.ok) {
-                                    const recordData = await recordResponse.json();
-                                    if (Array.isArray(recordData)) {
-                                        totalSlides += recordData.length;
-                                        
-                                        // Calculate total time from end_time of last slide
-                                        const lastSlide = recordData[recordData.length - 1];
-                                        if (lastSlide && lastSlide.end_time) {
-                                            const endTimeMs = this.parseTime(lastSlide.end_time);
-                                            totalTimeMs = Math.max(totalTimeMs, endTimeMs);
-                                        }
-                                    }
-                                }
-                            } catch (recordError) {
-                                console.warn(`Error loading record ${record}:`, recordError);
-                            }
-                        }
-                    }
-                } catch (lectureError) {
-                    console.warn(`Error loading records for lecture ${lecture}:`, lectureError);
-                }
-            }
-
-            this.homeState.stats = {
-                totalLectures: lectures.length,
-                totalRecords,
-                totalSlides,
-                totalTime: totalTimeMs
-            };
-        } catch (error) {
-            console.error('Error calculating stats manually:', error);
-            this.homeState.stats = {
-                totalLectures: 0,
-                totalRecords: 0,
-                totalSlides: 0,
-                totalTime: 0
-            };
-        }
-    }
-
-    updateStatsDisplay() {
-        const elements = {
-            totalLectures: document.getElementById('totalLectures'),
-            totalRecords: document.getElementById('totalRecords'),
-            totalSlides: document.getElementById('totalSlides'),
-            totalTime: document.getElementById('totalTime')
-        };
-
-        if (elements.totalLectures) elements.totalLectures.textContent = this.homeState.stats.totalLectures;
-        if (elements.totalRecords) elements.totalRecords.textContent = this.homeState.stats.totalRecords;
-        if (elements.totalSlides) elements.totalSlides.textContent = this.homeState.stats.totalSlides;
-        if (elements.totalTime) elements.totalTime.textContent = this.formatDuration(this.homeState.stats.totalTime);
-    }
-
-    async loadLectureList() {
-        try {
-            // Use localStorage instead of API
-            const lectures = this.getStoredLectures();
-            const lectureGrid = document.getElementById('lectureGrid');
-            
-            if (!lectureGrid) return;
-            
-            if (lectures.length === 0) {
-                lectureGrid.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-university"></i>
-                        <p>No lectures found. Add your first lecture to get started!</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            lectureGrid.innerHTML = lectures.map(lecture => `
-                <div class="lecture-item">
-                    <div class="lecture-info">
-                        <h4>${lecture}</h4>
-                        <small>Click to manage</small>
-                    </div>
-                    <div class="lecture-actions">
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteLecture('${lecture}')">
-                            <i class="fas fa-trash"></i>
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-            
-            this.homeState.lectures = lectures;
-        } catch (error) {
-            console.error('Error loading lecture list:', error);
-            this.showToast('Failed to load lectures', 'error');
-        }
-    }
-
-    async loadRecentActivity() {
-        // For now, show a simple placeholder
-        // In a real app, this would load from an activity log
-        const activityList = document.getElementById('recentActivity');
-        if (activityList) {
-            activityList.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-clock"></i>
-                    <p>No recent activity</p>
-                </div>
-            `;
-        }
-    }
-
-    formatDuration(ms) {
-        if (ms === 0) return '0h';
-        const hours = Math.floor(ms / (1000 * 60 * 60));
-        const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-        
-        if (hours > 0) {
-            return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-        }
-        return `${minutes}m`;
-    }
-
-    showAddLectureDialog() {
-        const input = document.getElementById('newLectureName');
-        if (input) {
-            input.focus();
-        }
-    }
-
-    toggleAddLectureForm() {
-        // Simple implementation - could be expanded
-        const input = document.getElementById('newLectureName');
-        if (input) {
-            input.style.display = input.style.display === 'none' ? 'block' : 'none';
-        }
-    }
-
-    async addLectureFromHome() {
-        const input = document.getElementById('newLectureName');
-        const lectureName = input?.value.trim();
-        
-        if (!lectureName) {
-            this.showToast('Please enter a lecture name', 'error');
-            return;
-        }
-
-        try {
-            // Add to localStorage
-            const lectures = this.getStoredLectures();
-            
-            if (lectures.includes(lectureName)) {
-                this.showToast('Lecture already exists', 'error');
-                return;
-            }
-            
-            lectures.push(lectureName);
-            this.saveStoredLectures(lectures);
-            
-            // Refresh lecture lists in all tabs
-            await this.loadLectures();
-            await this.loadLecturesForParser();
-            await this.loadLectureList();
-            
-            if (input) {
-                input.value = '';
-            }
-            this.showToast(`Lecture "${lectureName}" added successfully`, 'success');
-        } catch (error) {
-            console.error('Error adding lecture:', error);
-            this.showToast('Failed to add lecture', 'error');
-        }
-    }
-
-    async deleteLecture(lectureName) {
-        if (!confirm(`Are you sure you want to delete "${lectureName}" and all its records?`)) {
-            return;
-        }
-
-        try {
-            this.deleteStoredLecture(lectureName);
-            
-            // Refresh all relevant displays
-            await this.loadLectureList();
-            await this.loadLectures();
-            await this.loadLecturesForParser();
-            await this.loadDashboardStats();
-            
-            this.showToast(`Lecture "${lectureName}" deleted successfully`, 'success');
-        } catch (error) {
-            console.error('Error deleting lecture:', error);
-            this.showToast('Failed to delete lecture', 'error');
-        }
+        // 더 이상 복잡한 Home 기능이 없으므로 간단하게 유지
+        console.log('Home listeners set up');
     }
 
     // ===== SETTINGS TAB METHODS =====
@@ -2956,7 +2504,7 @@ class SlideScribeApp {
                 }
             
                 await this.loadJsonFileList();
-                await this.loadDashboardStats(); // Refresh stats
+                await this.updateHomeStats(); // Refresh stats
             
         } catch (error) {
             console.error('Error uploading JSON file:', error);
@@ -3295,7 +2843,7 @@ class SlideScribeApp {
             this.showToast('JSON file saved successfully!', 'success');
             this.closeJsonTableEditor();
             await this.loadJsonFileList();
-            await this.loadDashboardStats(); // Refresh stats
+            await this.updateHomeStats(); // Refresh stats
         } catch (error) {
             console.error('Error saving JSON file:', error);
             this.showToast('Failed to save file', 'error');
@@ -3346,7 +2894,7 @@ class SlideScribeApp {
             this.showToast('JSON file saved successfully!', 'success');
             this.hideJsonEditor();
             await this.loadJsonFileList();
-            await this.loadDashboardStats(); // Refresh stats
+            await this.updateHomeStats(); // Refresh stats
         } catch (error) {
             console.error('Error saving JSON file:', error);
             if (error instanceof SyntaxError) {
@@ -3669,11 +3217,10 @@ class SlideScribeApp {
             // Refresh all data that depends on user login
             await Promise.all([
                 this.loadLectures(),
-                this.loadLectureList(),
                 this.loadLecturesForParser(),
-                this.loadLecturesForSettings(),
-                this.loadDashboardStats()
+                this.loadLecturesForSettings()
             ]);
+            this.updateHomeStats();
         } catch (error) {
             console.error('Error refreshing user data:', error);
         }
@@ -3981,15 +3528,183 @@ class SlideScribeApp {
         
         preview.innerHTML = html;
     }
+
+    async updateHomeStats() {
+        try {
+            // 저장된 강의와 기록 데이터를 기반으로 통계 계산
+            const lectures = this.getStoredLectures();
+            let totalRecords = 0;
+            let totalSlides = 0;
+            
+            // 각 강의의 기록을 확인하여 통계 계산
+            lectures.forEach(lecture => {
+                const records = this.getStoredRecords(lecture);
+                const recordNames = Object.keys(records);
+                totalRecords += recordNames.length;
+                
+                // 각 기록의 슬라이드 수 계산
+                recordNames.forEach(recordName => {
+                    const recordData = records[recordName];
+                    if (Array.isArray(recordData)) {
+                        totalSlides += recordData.length;
+                    }
+                });
+            });
+            
+            // DOM 업데이트
+            const totalLecturesEl = document.getElementById('totalLectures');
+            const totalRecordsEl = document.getElementById('totalRecords');
+            const totalSlidesEl = document.getElementById('totalSlides');
+            
+            if (totalLecturesEl) totalLecturesEl.textContent = lectures.length;
+            if (totalRecordsEl) totalRecordsEl.textContent = totalRecords;
+            if (totalSlidesEl) totalSlidesEl.textContent = totalSlides;
+            
+        } catch (error) {
+            console.error('Error updating home stats:', error);
+        }
+    }
+
+    // 슬라이드 번호 증감 함수들
+    incrementSlide() {
+        const slideNumber = document.getElementById('slideNumber');
+        if (slideNumber) {
+            const currentValue = parseInt(slideNumber.value) || 1;
+            slideNumber.value = currentValue + 1;
+            this.timerState.currentSlide = currentValue + 1;
+        }
+    }
+
+    decrementSlide() {
+        const slideInput = document.getElementById('currentSlideInput');
+        if (slideInput) {
+            const currentValue = parseInt(slideInput.value) || 1;
+            if (currentValue > 1) {
+                slideInput.value = currentValue - 1;
+                this.timerState.currentSlide = currentValue - 1;
+            }
+        }
+    }
+    
+    // SRT Results editing functionality
+    setupResultsEditingListeners() {
+        // Listen for changes in editable elements
+        const editableElements = document.querySelectorAll('.slide-title-editable, .slide-notes-editable, .result-text-area');
+        editableElements.forEach(element => {
+            element.addEventListener('input', (e) => {
+                this.updateResultData(e.target);
+            });
+            
+            element.addEventListener('blur', (e) => {
+                this.saveResultChanges(e.target);
+            });
+        });
+    }
+    
+    updateResultData(element) {
+        const slideElement = element.closest('.result-slide');
+        const slideIndex = parseInt(slideElement.dataset.slideIndex);
+        const field = element.dataset.field;
+        
+        if (this.srtParser.parseResults && this.srtParser.parseResults[slideIndex]) {
+            const value = element.tagName === 'TEXTAREA' ? element.value : element.textContent;
+            
+            if (field === 'title') {
+                this.srtParser.parseResults[slideIndex].slide_title = value;
+            } else if (field === 'notes') {
+                // Remove "Notes: " prefix if present
+                const notesText = value.replace(/^Notes:\s*/, '');
+                this.srtParser.parseResults[slideIndex].notes = notesText;
+            } else if (field === 'text') {
+                this.srtParser.parseResults[slideIndex].text = value;
+                // Update copy button data-text attribute
+                const copyButton = slideElement.querySelector('.copy-button');
+                if (copyButton) {
+                    copyButton.dataset.text = value.replace(/"/g, '&quot;');
+                }
+            }
+        }
+    }
+    
+    saveResultChanges(element) {
+        // Visual feedback for saved changes
+        element.style.backgroundColor = '#e8f5e8';
+        setTimeout(() => {
+            element.style.backgroundColor = '';
+        }, 1000);
+    }
+    
+    copyText(button) {
+        // Get the actual text from the textarea next to the button
+        const textarea = button.parentElement.querySelector('.result-text-area');
+        const text = textarea ? textarea.value : button.dataset.text;
+        
+        // Use the Clipboard API if available
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.showCopyFeedback(button, 'Copied!');
+            }).catch(() => {
+                this.fallbackCopyText(text, button);
+            });
+        } else {
+            this.fallbackCopyText(text, button);
+        }
+    }
+    
+    fallbackCopyText(text, button) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+            this.showCopyFeedback(button, 'Copied!');
+        } catch (err) {
+            this.showCopyFeedback(button, 'Failed');
+        }
+        
+        document.body.removeChild(textArea);
+    }
+    
+    showCopyFeedback(button, message) {
+        // Store original text if not already stored
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.innerHTML;
+        }
+        
+        const originalText = button.dataset.originalText;
+        button.innerHTML = `<i class="fas fa-check"></i> ${message}`;
+        
+        if (message === 'Copied!') {
+            button.classList.add('success');
+        } else {
+            button.style.background = '#dc3545';
+        }
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.classList.remove('success');
+            button.style.background = '';
+        }, 2000);
+    }
 }
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new SlideScribeApp();
+    window.app.init(); // 이벤트 리스너 설정
     
     // Load saved dark mode preference
     const darkMode = localStorage.getItem('darkMode') === 'true';
-    document.getElementById('darkModeToggle').checked = darkMode;
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    if (darkModeToggle) {
+        darkModeToggle.checked = darkMode;
+    }
     if (darkMode) {
         document.documentElement.setAttribute('data-theme', 'dark');
     }

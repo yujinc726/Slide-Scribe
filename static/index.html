@@ -69,169 +69,78 @@
         <main class="content">
             <!-- Home Tab -->
             <div class="tab-content active" id="home-tab">
-                <div class="tab-header">
-                    <h1><i class="fas fa-home"></i> Welcome to Slide-Scribe</h1>
-                    <p>Your intelligent slide timing and transcription companion</p>
-                </div>
-
-                <!-- Lecture Management and JSON File Management -->
-                <div class="content-grid">
-                    <!-- Lecture List -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-university"></i> 강의 관리</h3>
+                <!-- Modern Hero Section -->
+                <div class="hero-section">
+                    <div class="hero-content">
+                        <div class="hero-icon">
+                            <i class="fas fa-presentation"></i>
                         </div>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <div class="input-group">
-                                    <input type="text" id="newLectureName" class="form-control" placeholder="강의명을 입력하세요">
-                                    <button class="btn btn-success" id="saveLectureBtn">
-                                        <i class="fas fa-plus"></i>
-                                        추가
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="lecture-grid" id="lectureGrid">
-                                <!-- Dynamic content -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- JSON File Management -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-file-code"></i> 타이머 기록 관리</h3>
-                        </div>
-                        <div class="card-body">
-                            <!-- Lecture Selection for JSON Management -->
-                            <div class="form-group">
-                                <label for="jsonLectureSelect">강의 선택</label>
-                                <select id="jsonLectureSelect" class="form-control">
-                                    <option value="">강의를 선택하세요</option>
-                                </select>
-                            </div>
-                            
-                            <!-- Upload JSON -->
-                            <div class="management-section" id="jsonUploadSection" style="display: none;">
-                                <h4>타이머 기록 업로드</h4>
-                                <div class="upload-area" id="jsonUploadArea">
-                                    <div class="upload-icon">
-                                        <i class="fas fa-cloud-upload-alt"></i>
-                                    </div>
-                                    <div class="upload-text">
-                                        <h5>JSON 파일을 여기에 드래그하세요</h5>
-                                        <p>또는 <span class="upload-link">browse files</span></p>
-                                        <small>JSON 파일만 허용됩니다</small>
-                                    </div>
-                                    <input type="file" id="jsonFileInput" accept=".json" hidden>
-                                </div>
-                                <button class="btn btn-primary" id="uploadJsonBtn" disabled>
-                                    <i class="fas fa-upload"></i>
-                                    JSON 파일 업로드
-                                </button>
-                            </div>
-                            
-                            <!-- JSON File List -->
-                            <div class="management-section" id="jsonFileSection" style="display: none;">
-                                <h4>타이머 기록 관리</h4>
-                                <div class="json-file-list" id="jsonFileList">
-                                    <!-- Dynamic content -->
-                                </div>
-                            </div>
-                            
-                            <!-- JSON Editor -->
-                            <div class="management-section" id="jsonEditorSection" style="display: none;">
-                                <div class="editor-header">
-                                    <h4>타이머 기록 편집</h4>
-                                    <div class="editor-actions">
-                                        <button class="btn btn-success btn-sm" id="saveJsonBtn">
-                                            <i class="fas fa-save"></i>
-                                            Save Changes
-                                        </button>
-                                        <button class="btn btn-secondary btn-sm" id="cancelEditBtn">
-                                            <i class="fas fa-times"></i>
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="json-editor-container">
-                                    <textarea id="jsonEditor" class="json-editor" rows="15"></textarea>
-                                </div>
-                            </div>
-                        </div>
+                        <h1>Slide Scribe</h1>
+                        <p>강의 슬라이드 타이밍과 자막을 쉽고 정확하게 관리하세요</p>
                     </div>
                 </div>
-                
-                <!-- Dashboard Overview -->
-                <div class="content-grid">
-                    <!-- Quick Stats -->
-                    <div class="card stats-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-line"></i> Overview</h3>
+
+                <!-- Features Grid -->
+                <div class="features-grid">
+                    <div class="feature-card" onclick="window.app.switchTab('timer')">
+                        <div class="feature-icon timer-icon">
+                            <i class="fas fa-stopwatch"></i>
                         </div>
-                        <div class="card-body">
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <div class="stat-value" id="totalLectures">0</div>
-                                    <div class="stat-label">Lectures</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-value" id="totalRecords">0</div>
-                                    <div class="stat-label">Records</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-value" id="totalSlides">0</div>
-                                    <div class="stat-label">Slides</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-value" id="totalTime">0h</div>
-                                    <div class="stat-label">Total Time</div>
-                                </div>
-                            </div>
+                        <h3>Slide Timer</h3>
+                        <p>강의 슬라이드별 타이밍을 정확하게 기록하고 관리하세요</p>
+                        <div class="feature-arrow">
+                            <i class="fas fa-arrow-right"></i>
                         </div>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="card quick-actions-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                    <div class="feature-card" onclick="window.app.switchTab('transcriber')">
+                        <div class="feature-icon transcriber-icon">
+                            <i class="fas fa-microphone"></i>
                         </div>
-                        <div class="card-body">
-                            <div class="quick-actions">
-                                <button class="quick-action-btn" onclick="app.switchTab('timer')">
-                                    <i class="fas fa-stopwatch"></i>
-                                    <span>Start Timer</span>
-                                </button>
-                                <button class="quick-action-btn" onclick="app.switchTab('parser')">
-                                    <i class="fas fa-file-alt"></i>
-                                    <span>Parse SRT</span>
-                                </button>
-                                <button class="quick-action-btn" onclick="app.switchTab('transcriber')">
-                                    <i class="fas fa-microphone"></i>
-                                    <span>Transcribe</span>
-                                </button>
-                                <button class="quick-action-btn" id="addLectureQuick">
-                                    <i class="fas fa-plus"></i>
-                                    <span>New Lecture</span>
-                                </button>
-                            </div>
+                        <h3>Transcriber</h3>
+                        <p>음성을 텍스트로 변환하여 자막을 자동으로 생성하세요</p>
+                        <div class="feature-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+
+                    <div class="feature-card" onclick="window.app.switchTab('parser')">
+                        <div class="feature-icon parser-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h3>SRT Parser</h3>
+                        <p>SRT 파일과 타이머 기록을 매칭하여 정확한 자막을 생성하세요</p>
+                        <div class="feature-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+
+                    <div class="feature-card" onclick="window.app.switchTab('settings')">
+                        <div class="feature-icon settings-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <h3>Settings</h3>
+                        <p>강의 및 데이터를 관리하고 설정을 조정하세요</p>
+                        <div class="feature-arrow">
+                            <i class="fas fa-arrow-right"></i>
                         </div>
                     </div>
                 </div>
 
-                <!-- Recent Activity -->
-                <div class="content-grid">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                <!-- Quick Stats -->
+                <div class="stats-section">
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalLectures">0</div>
+                            <div class="stat-label">총 강의</div>
                         </div>
-                        <div class="card-body">
-                            <div class="activity-list" id="recentActivity">
-                                <div class="empty-state">
-                                    <i class="fas fa-clock"></i>
-                                    <p>No recent activity</p>
-                                </div>
-                            </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalRecords">0</div>
+                            <div class="stat-label">기록된 세션</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalSlides">0</div>
+                            <div class="stat-label">슬라이드 기록</div>
                         </div>
                     </div>
                 </div>
@@ -245,25 +154,19 @@
                 
                 <!-- Selection Info Header (initially hidden) -->
                 <div class="selection-info" id="selectionInfo" style="display: none;">
-                    <div class="selection-item">
+                    <div class="selection-item" onclick="window.app.changeLecture()" title="Click to change lecture">
                         <i class="fas fa-book"></i>
                         <div class="selection-details">
                             <span class="selection-label">Lecture</span>
                             <span class="selection-value" id="selectedLecture">-</span>
                         </div>
-                        <button class="btn-change" onclick="app.changeLecture()" title="Change Lecture">
-                            <i class="fas fa-edit"></i>
-                        </button>
                     </div>
-                    <div class="selection-item">
+                    <div class="selection-item" onclick="window.app.changeRecord()" title="Click to change record">
                         <i class="fas fa-file-alt"></i>
                         <div class="selection-details">
                             <span class="selection-label">Record</span>
                             <span class="selection-value" id="selectedRecord">-</span>
                         </div>
-                        <button class="btn-change" onclick="app.changeRecord()" title="Change Record">
-                            <i class="fas fa-edit"></i>
-                        </button>
                     </div>
                 </div>
 
@@ -309,7 +212,7 @@
 
                 <!-- Step 3: Timer Interface -->
                 <div class="timer-interface" id="timerInterface" style="display: none;">
-                    <div class="content-grid timer-layout">
+                    <div class="timer-layout">
                         <!-- Left Column - Controls -->
                         <div class="timer-controls-column">
                             <!-- 슬라이드 정보 -->
@@ -515,7 +418,6 @@
                             <span class="selection-label">Lecture:</span>
                             <span class="selection-value" id="selectedParserLecture">-</span>
                         </div>
-                        <button class="btn btn-sm btn-change" onclick="app.changeParserLecture()">Change</button>
                     </div>
                     <div class="selection-item">
                         <i class="fas fa-clock"></i>
@@ -523,7 +425,6 @@
                             <span class="selection-label">Record:</span>
                             <span class="selection-value" id="selectedParserRecord">-</span>
                         </div>
-                        <button class="btn btn-sm btn-change" onclick="app.changeParserRecord()">Change</button>
                     </div>
                     <div class="selection-item">
                         <i class="fas fa-file-alt"></i>
@@ -531,7 +432,6 @@
                             <span class="selection-label">SRT File:</span>
                             <span class="selection-value" id="selectedSrtFile">-</span>
                         </div>
-                        <button class="btn btn-sm btn-change" onclick="app.changeSrtFile()">Change</button>
                     </div>
                 </div>
                 
@@ -610,24 +510,8 @@
                 <!-- Step 4: Parse Interface -->
                 <div id="parserInterface" class="setup-step" style="display: none;">
                     <!-- Results -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Parsing Results</h3>
-                            <div class="card-actions">
-                                <button class="btn btn-outline btn-sm" id="exportResultsBtn" disabled>
-                                    <i class="fas fa-download"></i>
-                                    Export Results
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="results-container" id="resultsContainer">
-                                <div class="empty-state">
-                                    <i class="fas fa-search"></i>
-                                    <p>Parse files to see results here</p>
-                                </div>
-                            </div>
-                        </div>
+                    <div id="resultsContainer">
+                        <!-- Results will be dynamically populated here -->
                     </div>
                 </div>
             </div>
