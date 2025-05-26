@@ -840,6 +840,8 @@ p {
     
     .nav-actions {
         gap: var(--spacing-xs);
+        flex-shrink: 0;
+        min-width: fit-content;
     }
     
     /* Hide user info text, keep only icon on mobile */
@@ -851,12 +853,6 @@ p {
         padding: var(--spacing-xs);
         border-radius: var(--radius-sm);
         transition: var(--transition);
-    }
-    
-    /* Prevent nav actions from overflowing */
-    .nav-actions {
-        flex-shrink: 0;
-        min-width: fit-content;
     }
     
     /* Mobile sidebar - moved to bottom as fixed navigation */
@@ -874,12 +870,35 @@ p {
         box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
         z-index: 1000;
         overflow: visible;
+        top: auto; /* Ensure it's not positioned from top */
     }
     
+    /* Remove any conflicting styles */
+    .sidebar.collapsed {
+        width: 100%;
+        padding: 0;
+        position: fixed;
+        bottom: 0;
+        top: auto;
+    }
+    
+    /* Ensure content doesn't get hidden behind bottom nav */
+    body {
+        padding-bottom: 80px;
+    }
+    
+    .content {
+        padding: var(--spacing-md);
+        min-height: calc(100vh - 3.5rem - 70px); /* Adjust for top nav and bottom nav */
+        margin-bottom: 0;
+    }
+    
+    /* Hide sidebar header on mobile */
     .sidebar-header {
-        display: none; /* Hide navigation header on mobile */
+        display: none;
     }
     
+    /* Ensure sidebar nav is properly positioned */
     .sidebar-nav {
         display: flex;
         height: 100%;
@@ -898,6 +917,7 @@ p {
         display: none; /* Chrome/Safari/Webkit */
     }
     
+    /* Ensure nav items are properly sized */
     .nav-item {
         flex: 1;
         min-width: 60px;
