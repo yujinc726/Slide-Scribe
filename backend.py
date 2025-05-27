@@ -193,6 +193,237 @@ def ensure_user_records_dir(username: str, lecture_id: str) -> Path:
     records_dir.mkdir(parents=True, exist_ok=True)
     return records_dir
 
+def get_records_index_path(username: str, lecture_id: str) -> str:
+    """타이머 기록 인덱스 파일의 GitHub 경로를 반환합니다."""
+    return f"users/{username}/records/{lecture_id}/index.json"
+
+def get_local_records_index_path(username: str, lecture_id: str) -> Path:
+    """타이머 기록 인덱스 파일의 로컬 경로를 반환합니다."""
+    records_dir = get_user_records_dir(username, lecture_id)
+    return records_dir / "index.json"
+
+async def load_records_index(username: str, lecture_id: str) -> Dict:
+    """타이머 기록 인덱스를 로드합니다."""
+    try:
+        # GitHub에서 인덱스 로드 시도
+        index_path = get_records_index_path(username, lecture_id)
+        github_data = await get_github_file_content(index_path)
+        
+        if github_data:
+            # 로컬 백업 저장
+            local_index_path = get_local_records_index_path(username, lecture_id)
+            local_index_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(local_index_path, 'w', encoding='utf-8') as f:
+                json.dump(github_data, f, ensure_ascii=False, indent=2)
+            return github_data
+        
+        # 로컬 백업에서 시도
+        local_index_path = get_local_records_index_path(username, lecture_id)
+        if local_index_path.exists():
+            with open(local_index_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        
+        # 인덱스가 없으면 빈 인덱스 반환
+        return {
+            "version": "1.0",
+            "lecture_id": lecture_id,
+            "records": [],
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        print(f"기록 인덱스 로드 오류: {e}")
+        # 오류 시 빈 인덱스 반환
+        return {
+            "version": "1.0",
+            "lecture_id": lecture_id,
+            "records": [],
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+
+async def save_records_index(username: str, lecture_id: str, index_data: Dict) -> bool:
+    """타이머 기록 인덱스를 저장합니다."""
+    try:
+        # 업데이트 시간 갱신
+        index_data["updated_at"] = datetime.now().isoformat()
+        
+        # GitHub에 저장
+        index_path = get_records_index_path(username, lecture_id)
+        github_success = await save_github_file_content(
+            index_path, 
+            index_data, 
+            f"Update records index for lecture {lecture_id}"
+        )
+        
+        # 로컬 백업 저장
+        local_index_path = get_local_records_index_path(username, lecture_id)
+        local_index_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_index_path, 'w', encoding='utf-8') as f:
+            json.dump(index_data, f, ensure_ascii=False, indent=2)
+        
+        return github_success
+    except Exception as e:
+        print(f"기록 인덱스 저장 오류: {e}")
+        return False
+
+async def add_record_to_index(username: str, lecture_id: str, record_data: Dict) -> bool:
+    """인덱스에 새 기록을 추가합니다."""
+    try:
+        index_data = await load_records_index(username, lecture_id)
+        
+        # 새 기록 정보 추가
+        record_info = {
+            "id": record_data.get("id"),
+            "session_name": record_data.get("session_name", ""),
+            "created_at": record_data.get("created_at"),
+            "updated_at": record_data.get("updated_at"),
+            "records_count": len(record_data.get("records", []))
+        }
+        
+        # 중복 체크 및 추가
+        existing_ids = [r.get("id") for r in index_data.get("records", [])]
+        if record_info["id"] not in existing_ids:
+            index_data["records"].append(record_info)
+            # 생성 시간 기준 역순 정렬
+            index_data["records"].sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        return await save_records_index(username, lecture_id, index_data)
+    except Exception as e:
+        print(f"인덱스에 기록 추가 오류: {e}")
+        return False
+
+async def remove_record_from_index(username: str, lecture_id: str, record_id: str) -> bool:
+    """인덱스에서 기록을 제거합니다."""
+    try:
+        index_data = await load_records_index(username, lecture_id)
+        
+        # 기록 제거
+        original_count = len(index_data.get("records", []))
+        index_data["records"] = [
+            r for r in index_data.get("records", []) 
+            if r.get("id") != record_id
+        ]
+        
+        # 실제로 제거되었는지 확인
+        if len(index_data["records"]) < original_count:
+            return await save_records_index(username, lecture_id, index_data)
+        
+        return True  # 제거할 기록이 없어도 성공으로 처리
+    except Exception as e:
+        print(f"인덱스에서 기록 제거 오류: {e}")
+        return False
+
+async def update_record_in_index(username: str, lecture_id: str, record_data: Dict) -> bool:
+    """인덱스의 기록 정보를 업데이트합니다."""
+    try:
+        index_data = await load_records_index(username, lecture_id)
+        
+        record_id = record_data.get("id")
+        updated_info = {
+            "id": record_id,
+            "session_name": record_data.get("session_name", ""),
+            "created_at": record_data.get("created_at"),
+            "updated_at": record_data.get("updated_at"),
+            "records_count": len(record_data.get("records", []))
+        }
+        
+        # 기존 기록 찾아서 업데이트
+        records = index_data.get("records", [])
+        for i, record in enumerate(records):
+            if record.get("id") == record_id:
+                records[i] = updated_info
+                break
+        else:
+            # 기록이 없으면 새로 추가
+            records.append(updated_info)
+        
+        # 생성 시간 기준 역순 정렬
+        index_data["records"].sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        return await save_records_index(username, lecture_id, index_data)
+    except Exception as e:
+        print(f"인덱스 기록 업데이트 오류: {e}")
+        return False
+
+async def delete_records_index(username: str, lecture_id: str) -> bool:
+    """타이머 기록 인덱스를 삭제합니다."""
+    try:
+        # 로컬 인덱스 파일 삭제
+        local_index_path = get_local_records_index_path(username, lecture_id)
+        if local_index_path.exists():
+            local_index_path.unlink()
+        
+        # GitHub에서는 인덱스 파일을 빈 내용으로 덮어쓰기 (삭제 대신)
+        empty_index = {
+            "version": "1.0",
+            "lecture_id": lecture_id,
+            "records": [],
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "deleted": True
+        }
+        
+        index_path = get_records_index_path(username, lecture_id)
+        await save_github_file_content(
+            index_path, 
+            empty_index, 
+            f"Delete records index for lecture {lecture_id}"
+        )
+        
+        return True
+    except Exception as e:
+        print(f"기록 인덱스 삭제 오류: {e}")
+        return False
+
+async def migrate_existing_records_to_index(username: str, lecture_id: str) -> bool:
+    """기존 기록들을 인덱스로 마이그레이션합니다."""
+    try:
+        # 현재 인덱스 확인
+        index_data = await load_records_index(username, lecture_id)
+        existing_ids = [r.get("id") for r in index_data.get("records", [])]
+        
+        # 로컬 기록 파일들 스캔
+        records_dir = get_user_records_dir(username, lecture_id)
+        if records_dir.exists():
+            added_count = 0
+            for record_file in records_dir.glob("*.json"):
+                if record_file.name == "index.json":
+                    continue
+                
+                record_id = record_file.stem
+                if record_id in existing_ids:
+                    continue
+                
+                try:
+                    with open(record_file, 'r', encoding='utf-8') as f:
+                        record_data = json.load(f)
+                    
+                    # 인덱스에 추가
+                    record_info = {
+                        "id": record_id,
+                        "session_name": record_data.get("session_name", ""),
+                        "created_at": record_data.get("created_at", datetime.now().isoformat()),
+                        "updated_at": record_data.get("updated_at", datetime.now().isoformat()),
+                        "records_count": len(record_data.get("records", []))
+                    }
+                    index_data["records"].append(record_info)
+                    added_count += 1
+                except Exception as e:
+                    print(f"기록 파일 마이그레이션 실패 {record_file}: {e}")
+                    continue
+            
+            if added_count > 0:
+                # 생성 시간 기준 역순 정렬
+                index_data["records"].sort(key=lambda x: x.get("created_at", ""), reverse=True)
+                await save_records_index(username, lecture_id, index_data)
+                print(f"마이그레이션 완료: {added_count}개 기록")
+            
+        return True
+    except Exception as e:
+        print(f"기록 마이그레이션 오류: {e}")
+        return False
+
 async def save_timer_record_file(username: str, lecture_id: str, record_id: str, record_data: Dict) -> bool:
     """타이머 기록을 독립된 JSON 파일로 GitHub에 저장합니다."""
     try:
@@ -204,6 +435,9 @@ async def save_timer_record_file(username: str, lecture_id: str, record_id: str,
         record_file = records_dir / f"{record_id}.json"
         with open(record_file, 'w', encoding='utf-8') as f:
             json.dump(record_data, f, ensure_ascii=False, indent=2)
+        
+        # 인덱스에 기록 추가/업데이트
+        await update_record_in_index(username, lecture_id, record_data)
         
         return github_success
     except Exception as e:
@@ -234,46 +468,18 @@ async def load_timer_record_file(username: str, lecture_id: str, record_id: str)
 async def list_timer_records(username: str, lecture_id: str) -> List[Dict]:
     """특정 강의의 모든 타이머 기록 목록을 반환합니다."""
     try:
-        records = []
+        # 인덱스에서 기록 목록 로드
+        index_data = await load_records_index(username, lecture_id)
+        records = index_data.get("records", [])
         
-        # GitHub에서 파일 목록 가져오기 시도
-        github_files = await get_github_directory_contents(f"users/{username}/records/{lecture_id}")
+        # 인덱스가 비어있거나 실제 파일과 싱크가 안 맞는 경우 마이그레이션 수행
+        if not records or len(records) == 0:
+            await migrate_existing_records_to_index(username, lecture_id)
+            # 마이그레이션 후 다시 로드
+            index_data = await load_records_index(username, lecture_id)
+            records = index_data.get("records", [])
         
-        if github_files:
-            # GitHub에서 각 파일의 메타데이터 가져오기
-            for file_name in github_files:
-                if file_name.endswith('.json'):
-                    record_id = file_name[:-5]  # .json 확장자 제거
-                    record_data = await load_timer_record_file(username, lecture_id, record_id)
-                    if record_data:
-                        records.append({
-                            "id": record_id,
-                            "session_name": record_data.get("session_name", ""),
-                            "created_at": record_data.get("created_at", ""),
-                            "updated_at": record_data.get("updated_at", ""),
-                            "records_count": len(record_data.get("records", []))
-                        })
-        else:
-            # GitHub에서 실패하면 로컬 백업 사용
-            records_dir = get_user_records_dir(username, lecture_id)
-            
-            if records_dir.exists():
-                for record_file in records_dir.glob("*.json"):
-                    try:
-                        with open(record_file, 'r', encoding='utf-8') as f:
-                            record_data = json.load(f)
-                            records.append({
-                                "id": record_file.stem,
-                                "session_name": record_data.get("session_name", ""),
-                                "created_at": record_data.get("created_at", ""),
-                                "updated_at": record_data.get("updated_at", ""),
-                                "records_count": len(record_data.get("records", []))
-                            })
-                    except Exception as e:
-                        print(f"타이머 기록 파일 읽기 오류 {record_file}: {e}")
-                        continue
-        
-        return sorted(records, key=lambda x: x.get("created_at", ""), reverse=True)
+        return records
     except Exception as e:
         print(f"타이머 기록 목록 로드 오류: {e}")
         return []
@@ -281,7 +487,10 @@ async def list_timer_records(username: str, lecture_id: str) -> List[Dict]:
 async def delete_timer_record_file(username: str, lecture_id: str, record_id: str) -> bool:
     """특정 타이머 기록 파일을 삭제합니다."""
     try:
-        # GitHub에서 삭제 (GitHub API의 파일 삭제는 복잡하므로 로컬만 삭제)
+        # 인덱스에서 기록 제거
+        await remove_record_from_index(username, lecture_id, record_id)
+        
+        # 로컬 파일 삭제
         records_dir = get_user_records_dir(username, lecture_id)
         record_file = records_dir / f"{record_id}.json"
         
@@ -297,6 +506,10 @@ async def delete_timer_record_file(username: str, lecture_id: str, record_id: st
 async def delete_all_lecture_records(username: str, lecture_id: str) -> bool:
     """특정 강의의 모든 타이머 기록 파일을 삭제합니다."""
     try:
+        # 인덱스 삭제
+        await delete_records_index(username, lecture_id)
+        
+        # 로컬 기록 디렉토리 삭제
         records_dir = get_user_records_dir(username, lecture_id)
         if records_dir.exists():
             shutil.rmtree(records_dir)
@@ -654,7 +867,7 @@ async def save_timer_session(lecture_name: str, session: TimerSession):
             "lecture_name": lecture_name,
             "records": [record.dict() for record in session.records],
             "created_at": session.created_at,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": session.updated_at,
             "filename": filename
         }
         
@@ -1315,6 +1528,46 @@ async def get_user_timer_record(username: str, lecture_id: str, record_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"타이머 기록 로드 실패: {str(e)}")
 
+@app.put("/api/users/{username}/lectures/{lecture_id}/timer-records/{record_id}")
+async def update_user_timer_record(username: str, lecture_id: str, record_id: str, session: TimerSession):
+    """사용자의 특정 타이머 기록을 업데이트합니다."""
+    try:
+        # 기존 기록 확인
+        existing_record = await load_timer_record_file(username, lecture_id, record_id)
+        if not existing_record:
+            raise HTTPException(status_code=404, detail="타이머 기록을 찾을 수 없습니다")
+        
+        # 업데이트된 기록 데이터 준비
+        updated_record = {
+            "id": record_id,
+            "lecture_id": lecture_id,
+            "lecture_name": existing_record.get("lecture_name", ""),
+            "session_name": session.lecture_name,
+            "records": [record.dict() for record in session.records],
+            "created_at": existing_record.get("created_at", session.created_at),
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        # 기록 파일 저장 (인덱스 자동 업데이트 포함)
+        github_success = await save_timer_record_file(username, lecture_id, record_id, updated_record)
+        
+        return {
+            "success": True,
+            "message": "타이머 기록이 성공적으로 업데이트되었습니다",
+            "timer_record": {
+                "id": record_id,
+                "session_name": session.lecture_name,
+                "created_at": updated_record["created_at"],
+                "updated_at": updated_record["updated_at"],
+                "records_count": len(session.records)
+            },
+            "github_sync": github_success
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"타이머 기록 업데이트 실패: {str(e)}")
+
 @app.delete("/api/users/{username}/lectures/{lecture_id}/timer-records/{record_id}")
 async def delete_user_timer_record(username: str, lecture_id: str, record_id: str):
     """사용자의 특정 타이머 기록을 삭제합니다."""
@@ -1332,6 +1585,129 @@ async def delete_user_timer_record(username: str, lecture_id: str, record_id: st
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"타이머 기록 삭제 실패: {str(e)}")
+
+@app.get("/api/users/{username}/lectures/{lecture_id}/index/status")
+async def get_records_index_status(username: str, lecture_id: str):
+    """타이머 기록 인덱스 상태를 확인합니다."""
+    try:
+        # 인덱스 로드
+        index_data = await load_records_index(username, lecture_id)
+        index_records = index_data.get("records", [])
+        
+        # 실제 파일 개수 확인
+        records_dir = get_user_records_dir(username, lecture_id)
+        actual_files = []
+        if records_dir.exists():
+            actual_files = [f.stem for f in records_dir.glob("*.json") if f.name != "index.json"]
+        
+        # 싱크 상태 확인
+        index_ids = set(r.get("id") for r in index_records)
+        actual_ids = set(actual_files)
+        
+        missing_in_index = actual_ids - index_ids
+        missing_files = index_ids - actual_ids
+        
+        is_synced = len(missing_in_index) == 0 and len(missing_files) == 0
+        
+        return {
+            "success": True,
+            "index_status": {
+                "version": index_data.get("version", "unknown"),
+                "lecture_id": lecture_id,
+                "index_count": len(index_records),
+                "actual_files_count": len(actual_files),
+                "is_synced": is_synced,
+                "missing_in_index": list(missing_in_index),
+                "missing_files": list(missing_files),
+                "last_updated": index_data.get("updated_at", "unknown")
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"인덱스 상태 확인 실패: {str(e)}")
+
+@app.post("/api/users/{username}/lectures/{lecture_id}/index/rebuild")
+async def rebuild_records_index(username: str, lecture_id: str):
+    """타이머 기록 인덱스를 재구성합니다."""
+    try:
+        # 새로운 빈 인덱스 생성
+        new_index = {
+            "version": "1.0",
+            "lecture_id": lecture_id,
+            "records": [],
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        # 기존 기록 파일들을 스캔하여 인덱스 재구성
+        records_dir = get_user_records_dir(username, lecture_id)
+        added_count = 0
+        
+        if records_dir.exists():
+            for record_file in records_dir.glob("*.json"):
+                if record_file.name == "index.json":
+                    continue
+                
+                try:
+                    with open(record_file, 'r', encoding='utf-8') as f:
+                        record_data = json.load(f)
+                    
+                    # 인덱스에 추가
+                    record_info = {
+                        "id": record_file.stem,
+                        "session_name": record_data.get("session_name", ""),
+                        "created_at": record_data.get("created_at", datetime.now().isoformat()),
+                        "updated_at": record_data.get("updated_at", datetime.now().isoformat()),
+                        "records_count": len(record_data.get("records", []))
+                    }
+                    new_index["records"].append(record_info)
+                    added_count += 1
+                except Exception as e:
+                    print(f"기록 파일 처리 실패 {record_file}: {e}")
+                    continue
+        
+        # 생성 시간 기준 역순 정렬
+        new_index["records"].sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        # 인덱스 저장
+        success = await save_records_index(username, lecture_id, new_index)
+        
+        return {
+            "success": True,
+            "message": "인덱스가 성공적으로 재구성되었습니다",
+            "rebuilding_result": {
+                "total_records": added_count,
+                "github_sync": success
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"인덱스 재구성 실패: {str(e)}")
+
+@app.post("/api/users/{username}/lectures/{lecture_id}/index/sync")
+async def sync_records_index(username: str, lecture_id: str):
+    """타이머 기록 인덱스를 실제 파일과 동기화합니다."""
+    try:
+        # 마이그레이션 수행 (기존 기록들을 인덱스에 추가)
+        success = await migrate_existing_records_to_index(username, lecture_id)
+        
+        if success:
+            # 최신 인덱스 상태 반환
+            index_data = await load_records_index(username, lecture_id)
+            
+            return {
+                "success": True,
+                "message": "인덱스 동기화가 완료되었습니다",
+                "sync_result": {
+                    "total_records": len(index_data.get("records", [])),
+                    "last_updated": index_data.get("updated_at")
+                }
+            }
+        else:
+            raise HTTPException(status_code=500, detail="인덱스 동기화 중 오류가 발생했습니다")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"인덱스 동기화 실패: {str(e)}")
 
 async def get_github_directory_contents(dir_path: str) -> List[str]:
     """GitHub에서 디렉토리 내 파일 목록을 가져옵니다."""
