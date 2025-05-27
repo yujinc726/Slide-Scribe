@@ -3665,13 +3665,15 @@ input:checked + .switch-slider:before {
 
 /* Button for record management in lecture list */
 .btn-lecture-records {
-    color: var(--info);
-    border-color: rgba(23, 162, 184, 0.3);
+    background: rgba(40, 167, 69, 0.1);
+    color: var(--success);
+    border: 1px solid rgba(40, 167, 69, 0.2);
 }
 
 .btn-lecture-records:hover {
-    background: rgba(23, 162, 184, 0.1);
-    border-color: var(--info);
+    background: rgba(40, 167, 69, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
 }
 
 /* Upload progress indicator */
@@ -3829,4 +3831,16 @@ input:checked + .switch-slider:before {
 
 [data-theme="dark"] .btn-lecture-records:hover {
     background: rgba(109, 211, 240, 0.1);
+}
+
+[data-theme="dark"] .btn-lecture-records {
+    background: rgba(40, 167, 69, 0.2);
+    color: #90ee90;
+    border-color: rgba(144, 238, 144, 0.3);
+}
+
+[data-theme="dark"] .btn-lecture-records:hover {
+    background: rgba(144, 238, 144, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
 }

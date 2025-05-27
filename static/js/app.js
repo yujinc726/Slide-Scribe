@@ -514,15 +514,15 @@ class SlideScribeApp {
                     </div>
                 </div>
                 <div class="lecture-actions">
-                    <button class="btn-lecture-action btn-lecture-records" 
-                            onclick="window.app.openTimerRecordsModal('${lecture.id}', '${this.escapeHtml(lecture.name)}')" 
-                            title="기록 관리">
-                        <i class="fas fa-file-alt"></i>
-                    </button>
                     <button class="btn-lecture-action btn-lecture-edit" 
                             onclick="window.app.editLecture('${lecture.id}')" 
                             title="강의 편집">
                         <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-lecture-action btn-lecture-records" 
+                            onclick="window.app.openTimerRecordsModal('${lecture.id}', '${this.escapeHtml(lecture.name)}')" 
+                            title="기록 관리">
+                        <i class="fas fa-file-alt"></i>
                     </button>
                     <button class="btn-lecture-action btn-lecture-delete" 
                             onclick="window.app.deleteLecture('${lecture.id}', '${this.escapeHtml(lecture.name)}')" 
