@@ -299,7 +299,8 @@ async def load_users_from_github() -> Dict[str, User]:
     
     if github_data is not None:
         try:
-            users_data = github_data["content"]
+            # get_github_file_content가 이제 직접 파싱된 JSON을 반환함
+            users_data = github_data if github_data else {}
             users = {username: User(**user_data) for username, user_data in users_data.items()}
             
             # 로컬에 백업 저장
@@ -380,26 +381,33 @@ async def health_check():
 async def github_status():
     """GitHub 연결 상태를 확인합니다."""
     try:
+        if not GITHUB_TOKEN:
+            return {
+                "status": "not_configured",
+                "message": "GitHub 토큰이 설정되지 않았습니다. .env 파일을 확인해주세요."
+            }
+            
         # GitHub API 기본 연결 테스트
         url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}"
         headers = get_github_headers()
         
-        response = requests.get(url, headers=headers)
-        
-        if response.status_code == 200:
-            repo_info = response.json()
-            return {
-                "status": "connected",
-                "repository": repo_info.get("full_name"),
-                "private": repo_info.get("private"),
-                "message": "GitHub 연결 성공"
-            }
-        else:
-            return {
-                "status": "error",
-                "message": f"GitHub API 오류: {response.status_code}",
-                "details": response.text
-            }
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                repo_info = response.json()
+                return {
+                    "status": "connected",
+                    "repository": repo_info.get("full_name"),
+                    "private": repo_info.get("private"),
+                    "message": "GitHub 연결 성공"
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"GitHub API 오류: {response.status_code}",
+                    "details": response.text if hasattr(response, 'text') else str(response.content)
+                }
     except Exception as e:
         return {
             "status": "error",
