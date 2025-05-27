@@ -193,15 +193,36 @@ def ensure_user_records_dir(username: str, lecture_id: str) -> Path:
     records_dir.mkdir(parents=True, exist_ok=True)
     return records_dir
 
-async def save_timer_record_file(username: str, lecture_id: str, record_id: str, record_data: Dict) -> bool:
+async def save_timer_record_file(username: str, lecture_id: str, record_id: str, record_data: Dict, friendly_filename: str = None) -> bool:
     """타이머 기록을 독립된 JSON 파일로 GitHub에 저장합니다."""
     try:
-        file_path = f"users/{username}/records/{lecture_id}/{record_id}.json"
+        # 기본 파일명은 record_id.json
+        filename = f"{record_id}.json"
+        
+        # 사용자 친화적인 파일명이 제공된 경우 사용
+        if friendly_filename:
+            # 파일명에 .json 확장자가 없으면 추가
+            if not friendly_filename.endswith('.json'):
+                filename = f"{friendly_filename}.json"
+            else:
+                filename = friendly_filename
+        
+        # 강의명 가져오기 - 기록 데이터에서 확인
+        lecture_name = record_data.get("lecture_name", "")
+        
+        # 강의명이 있으면 ID 대신 사용
+        folder_name = lecture_name if lecture_name else lecture_id
+        
+        # 폴더명에 사용할 수 없는 문자 처리
+        safe_folder_name = folder_name.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+        
+        # GitHub에 저장할 경로 (강의명 사용)
+        file_path = f"users/{username}/records/{safe_folder_name}/{filename}"
         github_success = await save_github_file_content(file_path, record_data, f"Save timer record {record_id}")
         
-        # 로컬 백업
+        # 로컬 백업 (기존 경로 유지)
         records_dir = ensure_user_records_dir(username, lecture_id)
-        record_file = records_dir / f"{record_id}.json"
+        record_file = records_dir / filename
         with open(record_file, 'w', encoding='utf-8') as f:
             json.dump(record_data, f, ensure_ascii=False, indent=2)
         
@@ -213,8 +234,31 @@ async def save_timer_record_file(username: str, lecture_id: str, record_id: str,
 async def load_timer_record_file(username: str, lecture_id: str, record_id: str) -> Optional[Dict]:
     """GitHub에서 특정 타이머 기록 파일을 로드합니다."""
     try:
-        file_path = f"users/{username}/records/{lecture_id}/{record_id}.json"
-        github_data = await get_github_file_content(file_path)
+        # 강의명 조회 시도
+        lecture_data = None
+        lectures_data = await load_user_data_from_github(username, "lectures")
+        if lectures_data and "lectures" in lectures_data:
+            for lecture in lectures_data["lectures"]:
+                if lecture.get("id") == lecture_id:
+                    lecture_data = lecture
+                    break
+        
+        # 강의명이 있으면 사용
+        lecture_name = lecture_data.get("name", "") if lecture_data else ""
+        
+        # 강의명에서 사용할 수 없는 문자 처리
+        safe_lecture_name = lecture_name.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+        
+        # 먼저 강의명 기반 경로로 시도
+        if lecture_name:
+            lecture_path = f"users/{username}/records/{safe_lecture_name}/{record_id}.json"
+            github_data = await get_github_file_content(lecture_path)
+            if github_data:
+                return github_data
+        
+        # 강의 ID 기반 경로로 시도
+        id_path = f"users/{username}/records/{lecture_id}/{record_id}.json"
+        github_data = await get_github_file_content(id_path)
         
         if github_data:
             return github_data
@@ -236,8 +280,37 @@ async def list_timer_records(username: str, lecture_id: str) -> List[Dict]:
     try:
         records = []
         
-        # GitHub에서 파일 목록 가져오기 시도
-        github_files = await get_github_directory_contents(f"users/{username}/records/{lecture_id}")
+        # 강의명 조회 시도
+        lecture_data = None
+        lectures_data = await load_user_data_from_github(username, "lectures")
+        if lectures_data and "lectures" in lectures_data:
+            for lecture in lectures_data["lectures"]:
+                if lecture.get("id") == lecture_id:
+                    lecture_data = lecture
+                    break
+        
+        # 강의명이 있으면 사용
+        lecture_name = lecture_data.get("name", "") if lecture_data else ""
+        
+        # 강의명에서 사용할 수 없는 문자 처리
+        safe_lecture_name = lecture_name.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+        
+        # GitHub에서 파일 목록 가져오기 시도 - 강의명 기반 경로
+        github_files = []
+        if lecture_name:
+            name_path = f"users/{username}/records/{safe_lecture_name}"
+            name_files = await get_github_directory_contents(name_path)
+            if name_files:
+                github_files.extend(name_files)
+        
+        # GitHub에서 파일 목록 가져오기 시도 - ID 기반 경로
+        id_path = f"users/{username}/records/{lecture_id}"
+        id_files = await get_github_directory_contents(id_path)
+        if id_files:
+            # ID 기반 경로에서 찾은 파일들 중 강의명 기반 경로에서 이미 찾은 파일은 제외
+            for file in id_files:
+                if file not in github_files:
+                    github_files.append(file)
         
         if github_files:
             # GitHub에서 각 파일의 메타데이터 가져오기
@@ -246,13 +319,16 @@ async def list_timer_records(username: str, lecture_id: str) -> List[Dict]:
                     record_id = file_name[:-5]  # .json 확장자 제거
                     record_data = await load_timer_record_file(username, lecture_id, record_id)
                     if record_data:
-                        records.append({
-                            "id": record_id,
-                            "session_name": record_data.get("session_name", ""),
-                            "created_at": record_data.get("created_at", ""),
-                            "updated_at": record_data.get("updated_at", ""),
-                            "records_count": len(record_data.get("records", []))
-                        })
+                        # 이미 추가된 ID인지 확인
+                        existing_ids = [r["id"] for r in records]
+                        if record_data.get("id") not in existing_ids:
+                            records.append({
+                                "id": record_data.get("id", record_id),
+                                "session_name": record_data.get("session_name", ""),
+                                "created_at": record_data.get("created_at", ""),
+                                "updated_at": record_data.get("updated_at", ""),
+                                "records_count": len(record_data.get("records", []))
+                            })
         else:
             # GitHub에서 실패하면 로컬 백업 사용
             records_dir = get_user_records_dir(username, lecture_id)
@@ -262,13 +338,16 @@ async def list_timer_records(username: str, lecture_id: str) -> List[Dict]:
                     try:
                         with open(record_file, 'r', encoding='utf-8') as f:
                             record_data = json.load(f)
-                            records.append({
-                                "id": record_file.stem,
-                                "session_name": record_data.get("session_name", ""),
-                                "created_at": record_data.get("created_at", ""),
-                                "updated_at": record_data.get("updated_at", ""),
-                                "records_count": len(record_data.get("records", []))
-                            })
+                            # 이미 추가된 ID인지 확인
+                            existing_ids = [r["id"] for r in records]
+                            if record_data.get("id") not in existing_ids:
+                                records.append({
+                                    "id": record_data.get("id", record_file.stem),
+                                    "session_name": record_data.get("session_name", ""),
+                                    "created_at": record_data.get("created_at", ""),
+                                    "updated_at": record_data.get("updated_at", ""),
+                                    "records_count": len(record_data.get("records", []))
+                                })
                     except Exception as e:
                         print(f"타이머 기록 파일 읽기 오류 {record_file}: {e}")
                         continue
@@ -654,7 +733,7 @@ async def save_timer_session(lecture_name: str, session: TimerSession):
             "lecture_name": lecture_name,
             "records": [record.dict() for record in session.records],
             "created_at": session.created_at,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": session.updated_at,
             "filename": filename
         }
         
@@ -1227,10 +1306,20 @@ async def save_user_timer_record(username: str, lecture_id: str, session: TimerS
         
         # 타이머 기록 데이터 준비
         record_id = str(uuid.uuid4())
+        
+        # 강의명을 파일명에 사용
+        lecture_name = target_lecture.get("name", "")
+        
+        # 사용자 친화적인 파일명 생성
+        friendly_filename = session.lecture_name
+        
+        # 파일명에 사용할 수 없는 문자 처리
+        sanitized_filename = friendly_filename.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
+        
         timer_record = {
             "id": record_id,
             "lecture_id": lecture_id,
-            "lecture_name": target_lecture.get("name", ""),
+            "lecture_name": lecture_name,
             "session_name": session.lecture_name,
             "records": [record.dict() for record in session.records],
             "created_at": session.created_at,
@@ -1238,7 +1327,7 @@ async def save_user_timer_record(username: str, lecture_id: str, session: TimerS
         }
         
         # 독립된 JSON 파일로 저장
-        github_success = await save_timer_record_file(username, lecture_id, record_id, timer_record)
+        github_success = await save_timer_record_file(username, lecture_id, record_id, timer_record, sanitized_filename)
         
         return {
             "success": True,
