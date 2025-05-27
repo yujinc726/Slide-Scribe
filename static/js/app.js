@@ -1330,6 +1330,11 @@ class SlideScribeApp {
         this.currentRecord = recordFile;
         this.timerState.currentRecord = recordFile; // Sync with timer state
         
+        // Store record name from the selected option
+        const recordSelect = document.getElementById('recordSelect');
+        const selectedOption = recordSelect.selectedOptions[0];
+        this.timerState.currentRecordName = selectedOption ? selectedOption.textContent : '';
+        
         // Always enable the button since "new" is a valid option
         const selectBtn = document.getElementById('selectRecordBtn');
         if (selectBtn) {
@@ -1547,8 +1552,9 @@ class SlideScribeApp {
         // Sync both lecture variables
         this.timerState.currentLecture = this.currentLecture;
         
-        // Update selection info
-        document.getElementById('selectedLecture').textContent = this.currentLecture;
+        // Update selection info - show lecture name instead of ID
+        const lectureName = this.timerState.currentLectureName || this.currentLecture;
+        document.getElementById('selectedLecture').textContent = lectureName;
         
         // Animate transition
         await this.animateStepTransition('lectureSelectionStep', 'recordSelectionStep');
@@ -1569,8 +1575,8 @@ class SlideScribeApp {
         // Sync record variables
         this.timerState.currentRecord = this.currentRecord;
         
-        // Update selection info - 새 기록일 때 '새 기록'으로 표시
-        const recordText = this.currentRecord === 'new' ? '새 기록' : this.currentRecord;
+        // Update selection info - show record name instead of ID
+        const recordText = this.currentRecord === 'new' ? '새 기록' : (this.timerState.currentRecordName || this.currentRecord);
         document.getElementById('selectedRecord').textContent = recordText;
         
         // Load record content if existing record selected
@@ -2124,8 +2130,9 @@ class SlideScribeApp {
             return;
         }
         
-        // Update selection info
-        document.getElementById('selectedParserLecture').textContent = this.srtParser.selectedLecture;
+        // Update selection info - show lecture name instead of ID
+        const lectureName = this.srtParser.selectedLectureName || this.srtParser.selectedLecture;
+        document.getElementById('selectedParserLecture').textContent = lectureName;
         
         // Load records for this lecture
         await this.loadRecordsForParser();
@@ -2176,6 +2183,12 @@ class SlideScribeApp {
     
     onParserRecordSelectChange(recordFile) {
         this.srtParser.selectedRecord = recordFile;
+        
+        // Store record name from the selected option
+        const recordSelect = document.getElementById('parserRecordSelect');
+        const selectedOption = recordSelect.selectedOptions[0];
+        this.srtParser.selectedRecordName = selectedOption ? selectedOption.textContent : '';
+        
         const selectBtn = document.getElementById('selectParserRecordBtn');
         selectBtn.disabled = !recordFile;
     }
@@ -2183,8 +2196,9 @@ class SlideScribeApp {
     async proceedToSrtFileUpload() {
         if (!this.srtParser.selectedRecord) return;
         
-        // Update selection info
-        document.getElementById('selectedParserRecord').textContent = this.srtParser.selectedRecord;
+        // Update selection info - show record name instead of ID
+        const recordName = this.srtParser.selectedRecordName || this.srtParser.selectedRecord;
+        document.getElementById('selectedParserRecord').textContent = recordName;
         
         // Show selection info
         document.getElementById('parserSelectionInfo').style.display = 'block';
