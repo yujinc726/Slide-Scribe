@@ -514,6 +514,11 @@ class SlideScribeApp {
                     </div>
                 </div>
                 <div class="lecture-actions">
+                    <button class="btn-lecture-action btn-lecture-records" 
+                            onclick="window.app.openTimerRecordsModal('${lecture.id}', '${this.escapeHtml(lecture.name)}')" 
+                            title="기록 관리">
+                        <i class="fas fa-file-alt"></i>
+                    </button>
                     <button class="btn-lecture-action btn-lecture-edit" 
                             onclick="window.app.editLecture('${lecture.id}')" 
                             title="강의 편집">
@@ -543,7 +548,10 @@ class SlideScribeApp {
             
             if (!lectureId) return;
 
-            if (target.classList.contains('btn-lecture-edit')) {
+            if (target.classList.contains('btn-lecture-records')) {
+                const lectureName = lectureItem.querySelector('.lecture-name')?.textContent || '';
+                this.openTimerRecordsModal(lectureId, lectureName);
+            } else if (target.classList.contains('btn-lecture-edit')) {
                 this.editLecture(lectureId);
             } else if (target.classList.contains('btn-lecture-delete')) {
                 const lectureName = lectureItem.querySelector('.lecture-name')?.textContent || '';
@@ -4046,12 +4054,7 @@ class SlideScribeApp {
     }
     
     showCopyFeedback(button, message) {
-        // Store original text if not already stored
-        if (!button.dataset.originalText) {
-            button.dataset.originalText = button.innerHTML;
-        }
-        
-        const originalText = button.dataset.originalText;
+        const originalText = button.innerHTML;
         button.innerHTML = `<i class="fas fa-check"></i> ${message}`;
         
         if (message === 'Copied!') {
@@ -4065,6 +4068,370 @@ class SlideScribeApp {
             button.classList.remove('success');
             button.style.background = '';
         }, 2000);
+    }
+
+    // ===== Timer Records Management Functions =====
+    
+    openTimerRecordsModal(lectureId, lectureName) {
+        this.currentTimerRecordsLecture = { id: lectureId, name: lectureName };
+        
+        // 모달 제목과 강의 정보 업데이트
+        const titleElement = document.getElementById('timerRecordsTitle');
+        const lectureNameElement = document.getElementById('recordsLectureName');
+        
+        if (titleElement) {
+            titleElement.innerHTML = `<i class="fas fa-file-alt"></i> 타이머 기록 관리`;
+        }
+        if (lectureNameElement) {
+            lectureNameElement.textContent = lectureName;
+        }
+        
+        // 모달 표시
+        const modal = document.getElementById('timerRecordsModal');
+        modal.classList.add('show');
+        
+        // 이벤트 리스너 설정
+        this.setupTimerRecordsModalListeners();
+        
+        // 기록 목록 로드
+        this.loadTimerRecords();
+    }
+
+    closeTimerRecordsModal() {
+        const modal = document.getElementById('timerRecordsModal');
+        modal.classList.remove('show');
+        
+        // 상태 초기화
+        this.currentTimerRecordsLecture = null;
+        
+        // 파일 업로드 영역 초기화
+        this.resetRecordUploadArea();
+    }
+
+    setupTimerRecordsModalListeners() {
+        // 모달 닫기
+        const closeBtn = document.getElementById('closeTimerRecordsBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeTimerRecordsModal());
+        }
+
+        // 새로고침 버튼
+        const refreshBtn = document.getElementById('refreshRecordsBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                await this.loadTimerRecords();
+                this.showToast('기록 목록을 새로고침했습니다', 'success');
+            });
+        }
+
+        // 파일 선택 버튼
+        const selectFileBtn = document.getElementById('selectRecordFileBtn');
+        const fileInput = document.getElementById('recordFileInput');
+        
+        if (selectFileBtn && fileInput) {
+            selectFileBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => this.handleRecordFileUpload(e));
+        }
+
+        // 드래그 앤 드롭
+        const uploadArea = document.getElementById('recordUploadArea');
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.handleRecordFileUpload({ target: { files: [files[0]] } });
+                }
+            });
+
+            uploadArea.addEventListener('click', () => {
+                if (fileInput) fileInput.click();
+            });
+        }
+    }
+
+    async loadTimerRecords() {
+        const recordsList = document.getElementById('timerRecordsList');
+        const countBadge = document.getElementById('recordCountBadge');
+        
+        if (!this.currentTimerRecordsLecture) return;
+
+        // 로딩 상태
+        recordsList.innerHTML = `
+            <div class="loading-state">
+                <i class="fas fa-spinner fa-spin"></i>
+                기록을 불러오는 중...
+            </div>
+        `;
+
+        try {
+            // 사용자별 강의의 기록 불러오기
+            const records = this.getStoredRecords(this.currentTimerRecordsLecture.name);
+            const recordKeys = Object.keys(records);
+            
+            // 기록 개수 업데이트
+            if (countBadge) {
+                countBadge.textContent = `${recordKeys.length}개 기록`;
+            }
+
+            // 기록 목록 렌더링
+            this.renderTimerRecordsList(records);
+
+        } catch (error) {
+            console.error('Error loading timer records:', error);
+            recordsList.innerHTML = `
+                <div class="empty-records">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>기록을 불러오는 중 오류가 발생했습니다</p>
+                    <small>${error.message}</small>
+                </div>
+            `;
+        }
+    }
+
+    renderTimerRecordsList(records) {
+        const recordsList = document.getElementById('timerRecordsList');
+        const recordKeys = Object.keys(records);
+
+        if (recordKeys.length === 0) {
+            recordsList.innerHTML = `
+                <div class="empty-records">
+                    <i class="fas fa-file-alt"></i>
+                    <p>저장된 기록이 없습니다</p>
+                    <small>새 JSON 파일을 업로드하여 기록을 추가하세요</small>
+                </div>
+            `;
+            return;
+        }
+
+        const recordsHtml = recordKeys.map(recordName => {
+            const recordData = records[recordName];
+            const slideCount = Array.isArray(recordData) ? recordData.length : 0;
+            const lastModified = new Date().toLocaleDateString('ko-KR');
+            
+            return `
+                <div class="record-item" data-record="${recordName}">
+                    <div class="record-header">
+                        <div class="record-info">
+                            <h6>${this.escapeHtml(recordName)}</h6>
+                            <div class="record-meta">
+                                <div class="meta-row">
+                                    <i class="fas fa-images"></i>
+                                    <span>${slideCount}개 슬라이드</span>
+                                </div>
+                                <div class="meta-row">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>수정: ${lastModified}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="record-actions">
+                            <button class="btn-record-action btn-record-view" 
+                                    onclick="window.app.viewTimerRecord('${this.escapeHtml(recordName)}')"
+                                    title="기록 보기">
+                                <i class="fas fa-eye"></i>
+                                보기
+                            </button>
+                            <button class="btn-record-action btn-record-delete" 
+                                    onclick="window.app.deleteTimerRecord('${this.escapeHtml(recordName)}')"
+                                    title="기록 삭제">
+                                <i class="fas fa-trash"></i>
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        recordsList.innerHTML = recordsHtml;
+    }
+
+    async handleRecordFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // JSON 파일 검증
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            this.showToast('JSON 파일만 업로드 가능합니다.', 'error');
+            return;
+        }
+
+        // 파일 크기 검증 (10MB 제한)
+        if (file.size > 10 * 1024 * 1024) {
+            this.showToast('파일 크기가 너무 큽니다. (최대 10MB)', 'error');
+            return;
+        }
+
+        try {
+            // 파일 읽기
+            const fileContent = await this.readFileAsText(file);
+            
+            // JSON 구조 검증
+            const jsonData = JSON.parse(fileContent);
+            const validationResult = this.validateTimerRecordJson(jsonData);
+            
+            if (!validationResult.isValid) {
+                this.showToast(`잘못된 JSON 구조: ${validationResult.error}`, 'error');
+                return;
+            }
+
+            // 기록 업로드
+            await this.uploadTimerRecord(file.name, jsonData);
+
+        } catch (error) {
+            console.error('File upload error:', error);
+            this.showToast('파일 업로드 중 오류가 발생했습니다.', 'error');
+        }
+
+        // 파일 입력 초기화
+        event.target.value = '';
+        this.resetRecordUploadArea();
+    }
+
+    validateTimerRecordJson(data) {
+        try {
+            // 배열인지 확인
+            if (!Array.isArray(data)) {
+                return { isValid: false, error: '데이터는 배열 형태여야 합니다.' };
+            }
+
+            // 각 슬라이드 검증
+            for (let i = 0; i < data.length; i++) {
+                const slide = data[i];
+                
+                // 필수 필드 확인
+                if (!slide.hasOwnProperty('slide_number')) {
+                    return { isValid: false, error: `슬라이드 ${i + 1}: slide_number 필드가 없습니다.` };
+                }
+                
+                if (!slide.hasOwnProperty('start_time')) {
+                    return { isValid: false, error: `슬라이드 ${i + 1}: start_time 필드가 없습니다.` };
+                }
+                
+                if (!slide.hasOwnProperty('end_time')) {
+                    return { isValid: false, error: `슬라이드 ${i + 1}: end_time 필드가 없습니다.` };
+                }
+
+                // 시간 형식 검증 (HH:MM:SS.sss 형태)
+                const timePattern = /^\d{2}:\d{2}:\d{2}\.\d{3}$/;
+                if (!timePattern.test(slide.start_time)) {
+                    return { isValid: false, error: `슬라이드 ${i + 1}: start_time 형식이 잘못되었습니다.` };
+                }
+                
+                if (!timePattern.test(slide.end_time)) {
+                    return { isValid: false, error: `슬라이드 ${i + 1}: end_time 형식이 잘못되었습니다.` };
+                }
+            }
+
+            return { isValid: true };
+
+        } catch (error) {
+            return { isValid: false, error: error.message };
+        }
+    }
+
+    async uploadTimerRecord(fileName, data) {
+        if (!this.currentTimerRecordsLecture) {
+            this.showToast('강의 정보가 없습니다.', 'error');
+            return;
+        }
+
+        try {
+            // 파일명에서 확장자 제거
+            const recordName = fileName.replace('.json', '');
+            
+            // 중복 확인
+            const existingRecords = this.getStoredRecords(this.currentTimerRecordsLecture.name);
+            if (existingRecords[recordName]) {
+                const confirmed = confirm(`'${recordName}' 기록이 이미 존재합니다. 덮어쓰시겠습니까?`);
+                if (!confirmed) return;
+            }
+
+            // 기록 저장
+            this.saveStoredRecord(this.currentTimerRecordsLecture.name, recordName, data);
+            
+            this.showToast(`'${recordName}' 기록이 성공적으로 추가되었습니다.`, 'success');
+            
+            // 기록 목록 새로고침
+            this.loadTimerRecords();
+
+        } catch (error) {
+            console.error('Error uploading timer record:', error);
+            this.showToast('기록 업로드 중 오류가 발생했습니다.', 'error');
+        }
+    }
+
+    viewTimerRecord(recordName) {
+        if (!this.currentTimerRecordsLecture) return;
+
+        try {
+            const records = this.getStoredRecords(this.currentTimerRecordsLecture.name);
+            const recordData = records[recordName];
+            
+            if (!recordData) {
+                this.showToast('기록을 찾을 수 없습니다.', 'error');
+                return;
+            }
+
+            // JSON 데이터를 새 창에서 보기
+            const jsonString = JSON.stringify(recordData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const newWindow = window.open(url, '_blank', 'width=800,height=600');
+            newWindow.document.title = `Timer Record - ${recordName}`;
+            
+            // 메모리 해제
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        } catch (error) {
+            console.error('Error viewing timer record:', error);
+            this.showToast('기록을 여는 중 오류가 발생했습니다.', 'error');
+        }
+    }
+
+    async deleteTimerRecord(recordName) {
+        if (!this.currentTimerRecordsLecture) return;
+
+        const confirmed = confirm(`'${recordName}' 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`);
+        if (!confirmed) return;
+
+        try {
+            this.deleteStoredRecord(this.currentTimerRecordsLecture.name, recordName);
+            this.showToast(`'${recordName}' 기록이 삭제되었습니다.`, 'success');
+            
+            // 기록 목록 새로고침
+            this.loadTimerRecords();
+
+        } catch (error) {
+            console.error('Error deleting timer record:', error);
+            this.showToast('기록 삭제 중 오류가 발생했습니다.', 'error');
+        }
+    }
+
+    resetRecordUploadArea() {
+        const uploadArea = document.getElementById('recordUploadArea');
+        const fileInput = document.getElementById('recordFileInput');
+        
+        if (uploadArea) {
+            uploadArea.classList.remove('drag-over');
+        }
+        
+        if (fileInput) {
+            fileInput.value = '';
+        }
     }
 }
 

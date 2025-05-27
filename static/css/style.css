@@ -3332,3 +3332,501 @@ input:checked + .switch-slider:before {
     letter-spacing: normal;
     opacity: 1;
 }
+
+.timer-interface .slide-title-group label,
+.timer-interface .slide-title-group .form-control {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .timer-interface .slide-title-group label,
+[data-theme="dark"] .timer-interface .slide-title-group .form-control {
+    color: var(--text-primary);
+}
+
+.settings-group .form-group label,
+.settings-group .form-control,
+.settings-group .setting-info label {
+    color: var(--text-primary);
+}
+
+/* ===== Timer Records Management Modal ===== */
+.records-management-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.lecture-info-card {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.lecture-info-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.info-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.info-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: var(--font-size-lg);
+}
+
+.record-count-badge {
+    background: rgba(102, 126, 234, 0.15);
+    color: var(--primary-solid);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: 20px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.upload-section {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    transition: var(--transition);
+}
+
+.upload-section:hover {
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.upload-section h5 {
+    margin: 0 0 var(--spacing-lg) 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.upload-section h5 i {
+    color: var(--primary-solid);
+    font-size: var(--font-size-lg);
+}
+
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    text-align: center;
+    transition: var(--transition);
+    cursor: pointer;
+    position: relative;
+    background: var(--bg-secondary);
+}
+
+.upload-area:hover {
+    border-color: var(--primary-solid);
+    background: rgba(102, 126, 234, 0.02);
+}
+
+.upload-area.drag-over {
+    border-color: var(--primary-solid);
+    background: rgba(102, 126, 234, 0.05);
+    transform: scale(1.02);
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.upload-icon {
+    font-size: 2.5rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-sm);
+    transition: var(--transition);
+}
+
+.upload-area:hover .upload-icon {
+    color: var(--primary-solid);
+    transform: translateY(-2px);
+}
+
+.upload-text {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.records-list-section {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.section-header h5 {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.section-header h5 i {
+    color: var(--primary-solid);
+    font-size: var(--font-size-lg);
+}
+
+.records-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.records-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.records-list::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 3px;
+}
+
+.records-list::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 3px;
+}
+
+.records-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+.record-item {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.record-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+    transform: scaleY(0);
+    transition: var(--transition);
+}
+
+.record-item:hover {
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    transform: translateY(-1px);
+}
+
+.record-item:hover::before {
+    transform: scaleY(1);
+}
+
+.record-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm);
+    gap: var(--spacing-md);
+}
+
+.record-info h6 {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: var(--font-size-base);
+}
+
+.record-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.meta-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.meta-row i {
+    width: 14px;
+    color: var(--text-muted);
+}
+
+.record-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+}
+
+.btn-record-action {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.btn-record-view {
+    color: var(--primary-solid);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.btn-record-view:hover {
+    background: rgba(102, 126, 234, 0.1);
+    border-color: var(--primary-solid);
+}
+
+.btn-record-delete {
+    color: var(--danger);
+    border-color: rgba(220, 53, 69, 0.3);
+}
+
+.btn-record-delete:hover {
+    background: rgba(220, 53, 69, 0.1);
+    border-color: var(--danger);
+}
+
+.empty-records {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-2xl);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.empty-records i {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.5;
+}
+
+.empty-records p {
+    margin: 0;
+    font-size: var(--font-size-lg);
+}
+
+.empty-records small {
+    color: var(--text-muted);
+    margin-top: var(--spacing-sm);
+    display: block;
+}
+
+/* Button for record management in lecture list */
+.btn-lecture-records {
+    color: var(--info);
+    border-color: rgba(23, 162, 184, 0.3);
+}
+
+.btn-lecture-records:hover {
+    background: rgba(23, 162, 184, 0.1);
+    border-color: var(--info);
+}
+
+/* Upload progress indicator */
+.upload-progress {
+    margin-top: var(--spacing-md);
+    display: none;
+}
+
+.upload-progress.show {
+    display: block;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    text-align: center;
+    margin-top: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .records-management-container {
+        gap: var(--spacing-md);
+    }
+    
+    .info-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .record-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+    
+    .record-actions {
+        align-self: stretch;
+        justify-content: flex-end;
+    }
+    
+    .upload-area {
+        padding: var(--spacing-lg);
+    }
+    
+    .upload-icon {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .upload-content {
+        gap: var(--spacing-sm);
+    }
+    
+    .upload-text {
+        font-size: var(--font-size-xs);
+    }
+    
+    .record-item {
+        padding: var(--spacing-md);
+    }
+    
+    .records-list {
+        max-height: 300px;
+    }
+    
+    .btn-record-action {
+        padding: var(--spacing-xs);
+        font-size: var(--font-size-xs);
+    }
+}
+
+/* Dark theme support */
+[data-theme="dark"] .lecture-info-card {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+[data-theme="dark"] .record-count-badge {
+    background: rgba(102, 126, 234, 0.2);
+    color: #8bb3ff;
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+[data-theme="dark"] .upload-section,
+[data-theme="dark"] .records-list-section {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .upload-area {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .upload-area:hover {
+    background: rgba(102, 126, 234, 0.05);
+}
+
+[data-theme="dark"] .record-item {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .record-item:hover {
+    border-color: rgba(102, 126, 234, 0.4);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+[data-theme="dark"] .btn-record-view {
+    color: #8bb3ff;
+    border-color: rgba(139, 179, 255, 0.3);
+}
+
+[data-theme="dark"] .btn-record-view:hover {
+    background: rgba(139, 179, 255, 0.1);
+}
+
+[data-theme="dark"] .btn-record-delete {
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+[data-theme="dark"] .btn-record-delete:hover {
+    background: rgba(255, 107, 107, 0.1);
+}
+
+[data-theme="dark"] .btn-lecture-records {
+    color: #6dd3f0;
+    border-color: rgba(109, 211, 240, 0.3);
+}
+
+[data-theme="dark"] .btn-lecture-records:hover {
+    background: rgba(109, 211, 240, 0.1);
+}
