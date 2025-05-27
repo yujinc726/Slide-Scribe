@@ -242,7 +242,7 @@ async def list_timer_records(username: str, lecture_name: str) -> List[Dict]:
                 if record_data:
                     records.append({
                         "filename": record_filename,
-                        "name": record_data.get("lecture_name", "Unknown"),
+                        "name": record_filename,  # 강의명 대신 파일명을 사용
                         "created_at": record_data.get("created_at", ""),
                         "record_count": len(record_data.get("records", []))
                     })
@@ -255,7 +255,7 @@ async def list_timer_records(username: str, lecture_name: str) -> List[Dict]:
                     record_data = json.load(f)
                     records.append({
                         "filename": record_file.stem,
-                        "name": record_data.get("lecture_name", "Unknown"),
+                        "name": record_file.stem,  # 강의명 대신 파일명을 사용
                         "created_at": record_data.get("created_at", ""),
                         "record_count": len(record_data.get("records", []))
                     })

@@ -1165,15 +1165,14 @@ class SlideScribeApp {
         }
 
         try {
-            const sessionName = this.timerState.currentLectureName || 'Unknown Lecture';
-            
             // 현재 시간으로 기록 이름 생성
             const timestamp = new Date();
-            const recordName = `${sessionName}_${timestamp.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
+            const formattedTimestamp = timestamp.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_');
+            const recordName = `${this.timerState.currentLecture}_${formattedTimestamp}`;
             
             // 백엔드 TimerSession 모델에 맞는 데이터 구조 생성
             const sessionData = {
-                lecture_name: recordName,  // session_name 대신 lecture_name 사용
+                lecture_name: recordName,  // 기록명을 '강의명_시각' 형태로 사용
                 records: this.slides,      // SlideRecord 배열 (이미 올바른 구조)
                 created_at: timestamp.toISOString(),
                 updated_at: timestamp.toISOString()
