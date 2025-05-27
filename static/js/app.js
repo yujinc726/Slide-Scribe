@@ -1248,39 +1248,56 @@ class SlideScribeApp {
     }
 
     // ===== API Operations =====
-    async loadLectures() {
+    async loadLecturesGeneric(selectElementId, defaultOptionText = '강의를 선택하세요...') {
         try {
             // 로그인 상태 확인
             if (!this.userState.isLoggedIn) {
                 this.showToast('로그인이 필요합니다', 'warning');
-                return;
+                return [];
             }
 
             // GitHub API에서 강의 목록 로드
             const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures`);
+            
+            if (!response.ok) {
+                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
             
             const lectures = data.lectures || [];
-            const lectureSelect = document.getElementById('lectureSelect');
+            const select = document.getElementById(selectElementId);
             
-            if (lectureSelect) {
-                lectureSelect.innerHTML = '<option value="">강의를 선택하세요...</option>';
+            if (select) {
+                select.innerHTML = `<option value="">${defaultOptionText}</option>`;
+                
                 lectures.forEach(lecture => {
                     const option = document.createElement('option');
                     option.value = lecture.id;
                     option.textContent = lecture.name;
                     option.dataset.lectureName = lecture.name;
-                    lectureSelect.appendChild(option);
+                    select.appendChild(option);
                 });
             }
             
             if (lectures.length === 0) {
                 this.showToast('생성된 강의가 없습니다. Settings에서 강의를 추가해주세요.', 'info');
             }
+            
+            return lectures;
         } catch (error) {
             console.error('Error loading lectures:', error);
-            this.showToast('강의 목록 로드 실패', 'error');
+            this.showToast('강의 목록 로드 실패: ' + error.message, 'error');
+            return [];
         }
+    }
+
+    async loadLectures() {
+        return await this.loadLecturesGeneric('lectureSelect');
+    }
+
+    async loadLecturesForParser() {
+        return await this.loadLecturesGeneric('parserLectureSelect');
     }
 
     async onLectureSelectChange(lectureId) {
@@ -1303,18 +1320,29 @@ class SlideScribeApp {
     async loadRecords() {
         if (!this.timerState.currentLecture) {
             this.clearRecordSelect();
-            return;
+            return [];
+        }
+        return await this.loadRecordsGeneric(this.timerState.currentLecture, 'recordSelect', '새 기록 시작', 'new');
+    }
+
+    async loadRecordsGeneric(lectureId, selectElementId, defaultOptionText, defaultOption = '') {
+        if (!lectureId) {
+            const select = document.getElementById(selectElementId);
+            if (select) {
+                select.innerHTML = `<option value="${defaultOption}">${defaultOptionText}</option>`;
+            }
+            return [];
         }
 
         try {
             // 로그인 상태 확인
             if (!this.userState.isLoggedIn) {
                 this.showToast('로그인이 필요합니다', 'warning');
-                return;
+                return [];
             }
 
             // GitHub API에서 해당 강의의 기록들을 로드
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`);
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${lectureId}/timer-records`);
             
             if (!response.ok) {
                 throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
@@ -1323,19 +1351,27 @@ class SlideScribeApp {
             const data = await response.json();
             
             const records = data.records || [];
-            const recordSelect = document.getElementById('recordSelect');
-            recordSelect.innerHTML = '<option value="new">새 기록 시작</option>';
+            const select = document.getElementById(selectElementId);
+            if (select) {
+                select.innerHTML = `<option value="${defaultOption}">${defaultOptionText}</option>`;
+                
+                records.forEach(record => {
+                    const option = document.createElement('option');
+                    option.value = record.id;
+                    option.textContent = record.session_name || `기록 ${record.id.slice(0, 8)}`;
+                    select.appendChild(option);
+                });
+            }
             
-            records.forEach(record => {
-                const option = document.createElement('option');
-                option.value = record.id;
-                option.textContent = record.session_name || `기록 ${record.id.slice(0, 8)}`;
-                recordSelect.appendChild(option);
-            });
+            if (records.length === 0 && selectElementId === 'parserRecordSelect') {
+                this.showToast('해당 강의에 저장된 타이머 기록이 없습니다', 'warning');
+            }
             
+            return records;
         } catch (error) {
             console.error('Failed to load records:', error);
             this.showToast('타이머 기록 로드 실패: ' + error.message, 'error');
+            return [];
         }
     }
 
@@ -1730,42 +1766,6 @@ class SlideScribeApp {
         this.resetToParserLectureSelection();
     }
     
-    async loadLecturesForParser() {
-        try {
-            // 로그인 상태 확인
-            if (!this.userState.isLoggedIn) {
-                this.showToast('로그인이 필요합니다', 'warning');
-                return;
-            }
-
-            // GitHub API에서 강의 목록 로드
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures`);
-            const data = await response.json();
-            
-            const lectures = data.lectures || [];
-            const select = document.getElementById('parserLectureSelect');
-            
-            if (select) {
-                select.innerHTML = '<option value="">강의를 선택하세요...</option>';
-                
-                lectures.forEach(lecture => {
-                    const option = document.createElement('option');
-                    option.value = lecture.id;
-                    option.textContent = lecture.name;
-                    option.dataset.lectureName = lecture.name;
-                    select.appendChild(option);
-                });
-            }
-            
-            if (lectures.length === 0) {
-                this.showToast('생성된 강의가 없습니다. Settings에서 강의를 추가해주세요.', 'info');
-            }
-        } catch (error) {
-            console.error('Error loading lectures for parser:', error);
-            this.showToast('강의 목록 로드 실패', 'error');
-        }
-    }
-    
     resetSrtParserState() {
         this.srtParser = {
             uploadedFileId: null,
@@ -2156,41 +2156,7 @@ class SlideScribeApp {
     }
     
     async loadRecordsForParser() {
-        if (!this.srtParser.selectedLecture) return;
-
-        try {
-            // 로그인 상태 확인
-            if (!this.userState.isLoggedIn) {
-                this.showToast('로그인이 필요합니다', 'warning');
-                return;
-            }
-
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records`);
-            
-            if (!response.ok) {
-                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            
-            const records = data.records || [];
-            const select = document.getElementById('parserRecordSelect');
-            select.innerHTML = '<option value="">타이머 기록을 선택하세요...</option>';
-            
-            records.forEach(record => {
-                const option = document.createElement('option');
-                option.value = record.id;
-                option.textContent = record.session_name || `기록 ${record.id.slice(0, 8)}`;
-                select.appendChild(option);
-            });
-            
-            if (records.length === 0) {
-                this.showToast('해당 강의에 저장된 타이머 기록이 없습니다', 'warning');
-            }
-        } catch (error) {
-            console.error('Failed to load records:', error);
-            this.showToast('타이머 기록 로드 실패: ' + error.message, 'error');
-        }
+        return await this.loadRecordsGeneric(this.srtParser.selectedLecture, 'parserRecordSelect', '타이머 기록을 선택하세요...', '');
     }
     
     onParserRecordSelectChange(recordFile) {
