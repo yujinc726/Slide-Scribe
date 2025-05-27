@@ -182,24 +182,26 @@ class UserLectureCreate(BaseModel):
     name: str
 
 # Timer Record File Management
-def get_user_records_dir(username: str, lecture_name: str) -> Path:
+def get_user_records_dir(username: str, lecture_id: str) -> Path:
+    """사용자의 특정 강의 타이머 기록 디렉토리 경로를 반환합니다."""
     user_dir = get_user_data_dir(username)
-    return user_dir / "records" / lecture_name
+    return user_dir / "records" / lecture_id
 
-def ensure_user_records_dir(username: str, lecture_name: str) -> Path:
-    records_dir = get_user_records_dir(username, lecture_name)
+def ensure_user_records_dir(username: str, lecture_id: str) -> Path:
+    """사용자의 특정 강의 타이머 기록 디렉토리를 생성하고 경로를 반환합니다."""
+    records_dir = get_user_records_dir(username, lecture_id)
     records_dir.mkdir(parents=True, exist_ok=True)
     return records_dir
 
-async def save_timer_record_file(username: str, lecture_name: str, record_filename: str, record_data: Dict) -> bool:
+async def save_timer_record_file(username: str, lecture_id: str, record_id: str, record_data: Dict) -> bool:
+    """타이머 기록을 독립된 JSON 파일로 GitHub에 저장합니다."""
     try:
-        # GitHub 저장
-        file_path = f"users/{username}/records/{lecture_name}/{record_filename}.json"
-        github_success = await save_github_file_content(file_path, record_data, f"Save timer record {record_filename}")
+        file_path = f"users/{username}/records/{lecture_id}/{record_id}.json"
+        github_success = await save_github_file_content(file_path, record_data, f"Save timer record {record_id}")
         
         # 로컬 백업
-        records_dir = ensure_user_records_dir(username, lecture_name)
-        record_file = records_dir / f"{record_filename}.json"
+        records_dir = ensure_user_records_dir(username, lecture_id)
+        record_file = records_dir / f"{record_id}.json"
         with open(record_file, 'w', encoding='utf-8') as f:
             json.dump(record_data, f, ensure_ascii=False, indent=2)
         
@@ -208,17 +210,18 @@ async def save_timer_record_file(username: str, lecture_name: str, record_filena
         print(f"타이머 기록 파일 저장 오류: {e}")
         return False
 
-async def load_timer_record_file(username: str, lecture_name: str, record_filename: str) -> Optional[Dict]:
+async def load_timer_record_file(username: str, lecture_id: str, record_id: str) -> Optional[Dict]:
+    """GitHub에서 특정 타이머 기록 파일을 로드합니다."""
     try:
-        # GitHub에서 로드 시도
-        file_path = f"users/{username}/records/{lecture_name}/{record_filename}.json"
+        file_path = f"users/{username}/records/{lecture_id}/{record_id}.json"
         github_data = await get_github_file_content(file_path)
+        
         if github_data:
             return github_data
-            
-        # 로컬 백업에서 로드
-        records_dir = get_user_records_dir(username, lecture_name)
-        record_file = records_dir / f"{record_filename}.json"
+        
+        # 로컬 백업에서 시도
+        records_dir = get_user_records_dir(username, lecture_id)
+        record_file = records_dir / f"{record_id}.json"
         if record_file.exists():
             with open(record_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -228,48 +231,59 @@ async def load_timer_record_file(username: str, lecture_name: str, record_filena
         print(f"타이머 기록 파일 로드 오류: {e}")
         return None
 
-async def list_timer_records(username: str, lecture_name: str) -> List[Dict]:
-    records = []
-    
+async def list_timer_records(username: str, lecture_id: str) -> List[Dict]:
+    """특정 강의의 모든 타이머 기록 목록을 반환합니다."""
     try:
-        # GitHub에서 기록 목록 가져오기
-        github_files = await get_github_directory_contents(f"users/{username}/records/{lecture_name}")
+        records = []
         
-        for file_name in github_files:
-            if file_name.endswith('.json'):
-                record_filename = file_name[:-5]  # .json 확장자 제거
-                record_data = await load_timer_record_file(username, lecture_name, record_filename)
-                if record_data:
-                    records.append({
-                        "filename": record_filename,
-                        "name": record_filename,  # 강의명 대신 파일명을 사용
-                        "created_at": record_data.get("created_at", ""),
-                        "record_count": len(record_data.get("records", []))
-                    })
-    except Exception:
-        # GitHub 실패 시 로컬 백업에서 로드
-        records_dir = get_user_records_dir(username, lecture_name)
-        for record_file in records_dir.glob("*.json"):
-            try:
-                with open(record_file, 'r', encoding='utf-8') as f:
-                    record_data = json.load(f)
-                    records.append({
-                        "filename": record_file.stem,
-                        "name": record_file.stem,  # 강의명 대신 파일명을 사용
-                        "created_at": record_data.get("created_at", ""),
-                        "record_count": len(record_data.get("records", []))
-                    })
-            except Exception as e:
-                print(f"타이머 기록 파일 읽기 오류 {record_file}: {e}")
-                continue
+        # GitHub에서 파일 목록 가져오기 시도
+        github_files = await get_github_directory_contents(f"users/{username}/records/{lecture_id}")
         
-    return sorted(records, key=lambda x: x.get("created_at", ""), reverse=True)
+        if github_files:
+            # GitHub에서 각 파일의 메타데이터 가져오기
+            for file_name in github_files:
+                if file_name.endswith('.json'):
+                    record_id = file_name[:-5]  # .json 확장자 제거
+                    record_data = await load_timer_record_file(username, lecture_id, record_id)
+                    if record_data:
+                        records.append({
+                            "id": record_id,
+                            "session_name": record_data.get("session_name", ""),
+                            "created_at": record_data.get("created_at", ""),
+                            "updated_at": record_data.get("updated_at", ""),
+                            "records_count": len(record_data.get("records", []))
+                        })
+        else:
+            # GitHub에서 실패하면 로컬 백업 사용
+            records_dir = get_user_records_dir(username, lecture_id)
+            
+            if records_dir.exists():
+                for record_file in records_dir.glob("*.json"):
+                    try:
+                        with open(record_file, 'r', encoding='utf-8') as f:
+                            record_data = json.load(f)
+                            records.append({
+                                "id": record_file.stem,
+                                "session_name": record_data.get("session_name", ""),
+                                "created_at": record_data.get("created_at", ""),
+                                "updated_at": record_data.get("updated_at", ""),
+                                "records_count": len(record_data.get("records", []))
+                            })
+                    except Exception as e:
+                        print(f"타이머 기록 파일 읽기 오류 {record_file}: {e}")
+                        continue
+        
+        return sorted(records, key=lambda x: x.get("created_at", ""), reverse=True)
+    except Exception as e:
+        print(f"타이머 기록 목록 로드 오류: {e}")
+        return []
 
-async def delete_timer_record_file(username: str, lecture_name: str, record_filename: str) -> bool:
+async def delete_timer_record_file(username: str, lecture_id: str, record_id: str) -> bool:
+    """특정 타이머 기록 파일을 삭제합니다."""
     try:
-        # 로컬 파일 삭제
-        records_dir = get_user_records_dir(username, lecture_name)
-        record_file = records_dir / f"{record_filename}.json"
+        # GitHub에서 삭제 (GitHub API의 파일 삭제는 복잡하므로 로컬만 삭제)
+        records_dir = get_user_records_dir(username, lecture_id)
+        record_file = records_dir / f"{record_id}.json"
         
         if record_file.exists():
             record_file.unlink()
@@ -280,9 +294,10 @@ async def delete_timer_record_file(username: str, lecture_name: str, record_file
         print(f"타이머 기록 파일 삭제 오류: {e}")
         return False
 
-async def delete_all_lecture_records(username: str, lecture_name: str) -> bool:
+async def delete_all_lecture_records(username: str, lecture_id: str) -> bool:
+    """특정 강의의 모든 타이머 기록 파일을 삭제합니다."""
     try:
-        records_dir = get_user_records_dir(username, lecture_name)
+        records_dir = get_user_records_dir(username, lecture_id)
         if records_dir.exists():
             shutil.rmtree(records_dir)
         return True
@@ -1128,76 +1143,94 @@ async def create_user_lecture(username: str, lecture: UserLectureCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"강의 생성 실패: {str(e)}")
 
-@app.delete("/api/users/{username}/lectures/{lecture_name}")
-async def delete_user_lecture(username: str, lecture_name: str):
-    """사용자의 특정 강의를 삭제합니다."""
+@app.delete("/api/users/{username}/lectures/{lecture_id}")
+async def delete_user_lecture(username: str, lecture_id: str):
+    """사용자의 강의를 삭제합니다."""
     try:
-        # 사용자 강의 목록 로드
-        user_lectures = await load_user_data_from_github(username, "lectures")
-        
-        if not user_lectures:
-            raise HTTPException(status_code=404, detail="강의 목록을 찾을 수 없습니다")
-        
-        lectures = user_lectures.get("lectures", [])
+        # 현재 강의 목록 로드
+        current_data = await load_user_data_from_github(username, "lectures")
+        if not current_data:
+            user_dir = get_user_data_dir(username)
+            lectures_file = user_dir / "lectures.json"
+            
+            if lectures_file.exists():
+                with open(lectures_file, 'r', encoding='utf-8') as f:
+                    current_data = json.load(f)
+            else:
+                raise HTTPException(status_code=404, detail="강의 목록을 찾을 수 없습니다")
         
         # 강의 찾기 및 삭제
-        updated_lectures = []
-        found = False
-        for lecture in lectures:
-            if lecture.get("name") == lecture_name:
-                found = True
-                continue
-            updated_lectures.append(lecture)
+        lectures = current_data.get("lectures", [])
+        lecture_to_delete = None
         
-        if not found:
+        for i, lecture in enumerate(lectures):
+            if lecture.get("id") == lecture_id:
+                lecture_to_delete = lectures.pop(i)
+                break
+        
+        if not lecture_to_delete:
             raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다")
         
-        # 강의 관련 모든 타이머 기록 삭제 (로컬)
-        await delete_all_lecture_records(username, lecture_name)
+        # 해당 강의의 모든 타이머 기록 파일 삭제
+        await delete_all_lecture_records(username, lecture_id)
         
-        # GitHub에서 강의 폴더 삭제
-        await delete_github_lecture_folder(username, lecture_name)
+        # GitHub에 저장
+        github_success = await save_user_data_to_github(
+            username, "lectures", current_data,
+            f"Delete lecture: {lecture_to_delete.get('name', 'Unknown')}"
+        )
         
-        # 업데이트된 강의 목록 저장
-        user_lectures["lectures"] = updated_lectures
-        await save_user_data_to_github(username, "lectures", user_lectures, f"Delete lecture: {lecture_name}")
+        # 로컬 백업
+        user_dir = ensure_user_data_dir(username)
+        lectures_file = user_dir / "lectures.json"
+        with open(lectures_file, 'w', encoding='utf-8') as f:
+            json.dump(current_data, f, ensure_ascii=False, indent=2)
         
-        return {"success": True, "message": "강의가 성공적으로 삭제되었습니다"}
+        return {
+            "success": True,
+            "message": "강의가 성공적으로 삭제되었습니다",
+            "deleted_lecture": lecture_to_delete,
+            "github_sync": github_success
+        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"강의 삭제 실패: {str(e)}")
 
-@app.post("/api/users/{username}/lectures/{lecture_name}/timer-records")
-async def save_user_timer_record(username: str, lecture_name: str, session: TimerSession):
-    """사용자의 타이머 기록을 독립된 JSON 파일로 저장합니다."""
+@app.post("/api/users/{username}/lectures/{lecture_id}/timer-records")
+async def save_user_timer_record(username: str, lecture_id: str, session: TimerSession):
+    """사용자의 특정 강의에 타이머 기록을 독립된 JSON 파일로 저장합니다."""
     try:
-        # 사용자 강의 목록 로드
-        user_lectures = await load_user_data_from_github(username, "lectures")
-        
-        if not user_lectures:
-            raise HTTPException(status_code=404, detail="강의 목록을 찾을 수 없습니다")
-        
-        lectures = user_lectures.get("lectures", [])
-        
         # 강의 존재 확인
+        current_data = await load_user_data_from_github(username, "lectures")
+        if not current_data:
+            user_dir = get_user_data_dir(username)
+            lectures_file = user_dir / "lectures.json"
+            
+            if lectures_file.exists():
+                with open(lectures_file, 'r', encoding='utf-8') as f:
+                    current_data = json.load(f)
+            else:
+                raise HTTPException(status_code=404, detail="강의 목록을 찾을 수 없습니다")
+        
+        # 강의 찾기
+        lectures = current_data.get("lectures", [])
         target_lecture = None
+        
         for lecture in lectures:
-            if lecture.get("name") == lecture_name:
+            if lecture.get("id") == lecture_id:
                 target_lecture = lecture
                 break
         
         if not target_lecture:
             raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다")
         
-        # 파일명 생성 (강의명_시각 형태)
-        from datetime import datetime
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        record_filename = f"{lecture_name}_{timestamp}"
-        
+        # 타이머 기록 데이터 준비
+        record_id = str(uuid.uuid4())
         timer_record = {
-            "filename": record_filename,
-            "lecture_name": lecture_name,
+            "id": record_id,
+            "lecture_id": lecture_id,
+            "lecture_name": target_lecture.get("name", ""),
             "session_name": session.lecture_name,
             "records": [record.dict() for record in session.records],
             "created_at": session.created_at,
@@ -1205,61 +1238,24 @@ async def save_user_timer_record(username: str, lecture_name: str, session: Time
         }
         
         # 독립된 JSON 파일로 저장
-        github_success = await save_timer_record_file(username, lecture_name, record_filename, timer_record)
+        github_success = await save_timer_record_file(username, lecture_id, record_id, timer_record)
         
         return {
             "success": True,
             "message": "타이머 기록이 성공적으로 저장되었습니다",
             "timer_record": {
-                "filename": record_filename,
+                "id": record_id,
                 "session_name": session.lecture_name,
                 "created_at": session.created_at,
-                "updated_at": session.updated_at
-            }
+                "updated_at": session.updated_at,
+                "records_count": len(session.records)
+            },
+            "github_sync": github_success
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"타이머 기록 저장 실패: {str(e)}")
-
-@app.get("/api/users/{username}/lectures/{lecture_name}/timer-records")
-async def get_user_timer_records(username: str, lecture_name: str):
-    """사용자의 특정 강의에 대한 모든 타이머 기록 목록을 반환합니다."""
-    try:
-        records = await list_timer_records(username, lecture_name)
-        return {"records": records}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"타이머 기록 목록 로드 실패: {str(e)}")
-
-@app.get("/api/users/{username}/lectures/{lecture_name}/timer-records/{record_filename}")
-async def get_user_timer_record(username: str, lecture_name: str, record_filename: str):
-    """사용자의 특정 타이머 기록 내용을 반환합니다."""
-    try:
-        record_data = await load_timer_record_file(username, lecture_name, record_filename)
-        
-        if not record_data:
-            raise HTTPException(status_code=404, detail="타이머 기록을 찾을 수 없습니다")
-        
-        return record_data
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"타이머 기록 로드 실패: {str(e)}")
-
-@app.delete("/api/users/{username}/lectures/{lecture_name}/timer-records/{record_filename}")
-async def delete_user_timer_record(username: str, lecture_name: str, record_filename: str):
-    """사용자의 특정 타이머 기록을 삭제합니다."""
-    try:
-        success = await delete_timer_record_file(username, lecture_name, record_filename)
-        
-        if not success:
-            raise HTTPException(status_code=404, detail="타이머 기록을 찾을 수 없습니다")
-        
-        return {"success": True, "message": "타이머 기록이 성공적으로 삭제되었습니다"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"타이머 기록 삭제 실패: {str(e)}")
 
 @app.get("/api/users/{username}/sync-status")
 async def get_user_sync_status(username: str):
@@ -1287,6 +1283,55 @@ async def get_user_sync_status(username: str):
             "error": str(e),
             "message": "GitHub 연결에 문제가 있습니다"
         }
+
+@app.get("/api/users/{username}/lectures/{lecture_id}/timer-records")
+async def get_user_timer_records(username: str, lecture_id: str):
+    """사용자의 특정 강의의 모든 타이머 기록 목록을 반환합니다."""
+    try:
+        records = await list_timer_records(username, lecture_id)
+        return {
+            "success": True,
+            "records": records,
+            "total_count": len(records)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"타이머 기록 목록 로드 실패: {str(e)}")
+
+@app.get("/api/users/{username}/lectures/{lecture_id}/timer-records/{record_id}")
+async def get_user_timer_record(username: str, lecture_id: str, record_id: str):
+    """사용자의 특정 타이머 기록 내용을 반환합니다."""
+    try:
+        record_data = await load_timer_record_file(username, lecture_id, record_id)
+        
+        if not record_data:
+            raise HTTPException(status_code=404, detail="타이머 기록을 찾을 수 없습니다")
+        
+        return {
+            "success": True,
+            "record": record_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"타이머 기록 로드 실패: {str(e)}")
+
+@app.delete("/api/users/{username}/lectures/{lecture_id}/timer-records/{record_id}")
+async def delete_user_timer_record(username: str, lecture_id: str, record_id: str):
+    """사용자의 특정 타이머 기록을 삭제합니다."""
+    try:
+        success = await delete_timer_record_file(username, lecture_id, record_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="타이머 기록을 찾을 수 없습니다")
+        
+        return {
+            "success": True,
+            "message": "타이머 기록이 성공적으로 삭제되었습니다"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"타이머 기록 삭제 실패: {str(e)}")
 
 async def get_github_directory_contents(dir_path: str) -> List[str]:
     """GitHub에서 디렉토리 내 파일 목록을 가져옵니다."""
@@ -1319,62 +1364,6 @@ async def get_github_directory_contents(dir_path: str) -> List[str]:
     except Exception as e:
         print(f"GitHub 디렉토리 내용 가져오기 오류: {e}")
         return []
-
-async def delete_github_lecture_folder(username: str, lecture_name: str) -> bool:
-    """GitHub에서 사용자의 특정 강의 폴더를 삭제합니다."""
-    headers = get_github_headers()
-    if not headers:
-        print("GitHub 토큰이 설정되지 않아 폴더 삭제를 건너뜁니다")
-        return False
-        
-    try:
-        # 삭제할 디렉토리 경로
-        dir_path = f"users/{username}/lectures/{lecture_name}"
-        
-        # 먼저 디렉토리 내 파일 목록을 가져옵니다
-        url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{dir_path}"
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers)
-            
-            if response.status_code == 404:
-                print(f"GitHub 폴더가 존재하지 않습니다: {dir_path}")
-                return True  # 이미 없으므로 삭제 성공으로 간주
-            
-            if response.status_code != 200:
-                print(f"GitHub 폴더 내용 조회 실패: {response.status_code}")
-                return False
-                
-            files_data = response.json()
-            
-            # 디렉토리 내 모든 파일을 삭제
-            if isinstance(files_data, list):
-                for file_item in files_data:
-                    if file_item['type'] == 'file':
-                        file_path = file_item['path']
-                        file_sha = file_item['sha']
-                        
-                        # 개별 파일 삭제
-                        file_url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{file_path}"
-                        delete_data = {
-                            "message": f"Delete file: {file_path}",
-                            "sha": file_sha
-                        }
-                        
-                        delete_response = await client.delete(file_url, headers=headers, json=delete_data)
-                        
-                        if delete_response.status_code not in [200, 404]:
-                            print(f"파일 삭제 실패: {file_path} - {delete_response.status_code}")
-                            return False
-                        else:
-                            print(f"파일 삭제 성공: {file_path}")
-            
-            print(f"GitHub 강의 폴더 삭제 완료: {dir_path}")
-            return True
-            
-    except Exception as e:
-        print(f"GitHub 강의 폴더 삭제 오류: {e}")
-        return False
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True) 
