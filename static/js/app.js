@@ -2122,6 +2122,8 @@ class SlideScribeApp {
         const selectedOption = select.selectedOptions[0];
         const lectureName = selectedOption ? selectedOption.dataset.lectureName : '';
         
+        console.log('Parser 강의 선택:', lectureId, '강의명:', lectureName);
+        
         this.srtParser.selectedLecture = lectureId;
         this.srtParser.selectedLectureName = lectureName;
         
@@ -2132,14 +2134,15 @@ class SlideScribeApp {
     async proceedToParserRecordSelection() {
         console.log('=== proceedToParserRecordSelection called ===');
         console.log('this.srtParser.selectedLecture:', this.srtParser.selectedLecture);
+        console.log('this.srtParser.selectedLectureName:', this.srtParser.selectedLectureName);
         
         if (!this.srtParser.selectedLecture) {
             console.log('No lecture selected, returning');
             return;
         }
         
-        // Update selection info
-        document.getElementById('selectedParserLecture').textContent = this.srtParser.selectedLecture;
+        // Update selection info - 강의 ID 대신 강의명을 표시
+        document.getElementById('selectedParserLecture').textContent = this.srtParser.selectedLectureName || this.srtParser.selectedLecture;
         
         // Load records for this lecture
         await this.loadRecordsForParser();
@@ -2168,8 +2171,18 @@ class SlideScribeApp {
     async proceedToSrtFileUpload() {
         if (!this.srtParser.selectedRecord) return;
         
-        // Update selection info
-        document.getElementById('selectedParserRecord').textContent = this.srtParser.selectedRecord;
+        // 기록 이름 찾기
+        let recordName = this.srtParser.selectedRecord;
+        
+        // recordSelect에서 선택된 옵션의 텍스트 가져오기
+        const recordSelect = document.getElementById('parserRecordSelect');
+        const selectedOption = recordSelect.querySelector(`option[value="${this.srtParser.selectedRecord}"]`);
+        if (selectedOption) {
+            recordName = selectedOption.textContent;
+        }
+        
+        // Update selection info - 사용자 친화적인 이름으로 표시
+        document.getElementById('selectedParserRecord').textContent = recordName;
         
         // Show selection info
         document.getElementById('parserSelectionInfo').style.display = 'block';
@@ -2260,24 +2273,17 @@ class SlideScribeApp {
                 return;
             }
 
-            // GitHub API에서 타이머 기록 로드
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records/${this.srtParser.selectedRecord}`);
+            console.log('파싱 시작:', this.srtParser.selectedLecture, this.srtParser.selectedRecord);
             
-            if (!response.ok) {
-                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
-            }
+            // 로컬 스토리지에서 기록 가져오기
+            const records = this.getStoredRecords(this.srtParser.selectedLecture);
+            const recordData = records[this.srtParser.selectedRecord];
             
-            const data = await response.json();
-            
-            if (!data.success || !data.record) {
-                throw new Error('타이머 기록을 찾을 수 없습니다');
+            if (!recordData || !Array.isArray(recordData) || recordData.length === 0) {
+                throw new Error('타이머 기록을 찾을 수 없거나 유효하지 않습니다');
             }
 
-            const timerRecord = data.record.records || [];
-            
-            if (!Array.isArray(timerRecord) || timerRecord.length === 0) {
-                throw new Error('유효한 타이머 기록이 없습니다');
-            }
+            const timerRecord = recordData;
             
             // Parse SRT content
             const subtitles = this.parseSrtContent(srtContent);
