@@ -1152,8 +1152,11 @@ async def delete_user_lecture(username: str, lecture_name: str):
         if not found:
             raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다")
         
-        # 강의 관련 모든 타이머 기록 삭제
+        # 강의 관련 모든 타이머 기록 삭제 (로컬)
         await delete_all_lecture_records(username, lecture_name)
+        
+        # GitHub에서 강의 폴더 삭제
+        await delete_github_lecture_folder(username, lecture_name)
         
         # 업데이트된 강의 목록 저장
         user_lectures["lectures"] = updated_lectures
@@ -1316,6 +1319,62 @@ async def get_github_directory_contents(dir_path: str) -> List[str]:
     except Exception as e:
         print(f"GitHub 디렉토리 내용 가져오기 오류: {e}")
         return []
+
+async def delete_github_lecture_folder(username: str, lecture_name: str) -> bool:
+    """GitHub에서 사용자의 특정 강의 폴더를 삭제합니다."""
+    headers = get_github_headers()
+    if not headers:
+        print("GitHub 토큰이 설정되지 않아 폴더 삭제를 건너뜁니다")
+        return False
+        
+    try:
+        # 삭제할 디렉토리 경로
+        dir_path = f"users/{username}/lectures/{lecture_name}"
+        
+        # 먼저 디렉토리 내 파일 목록을 가져옵니다
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{dir_path}"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            
+            if response.status_code == 404:
+                print(f"GitHub 폴더가 존재하지 않습니다: {dir_path}")
+                return True  # 이미 없으므로 삭제 성공으로 간주
+            
+            if response.status_code != 200:
+                print(f"GitHub 폴더 내용 조회 실패: {response.status_code}")
+                return False
+                
+            files_data = response.json()
+            
+            # 디렉토리 내 모든 파일을 삭제
+            if isinstance(files_data, list):
+                for file_item in files_data:
+                    if file_item['type'] == 'file':
+                        file_path = file_item['path']
+                        file_sha = file_item['sha']
+                        
+                        # 개별 파일 삭제
+                        file_url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{file_path}"
+                        delete_data = {
+                            "message": f"Delete file: {file_path}",
+                            "sha": file_sha
+                        }
+                        
+                        delete_response = await client.delete(file_url, headers=headers, json=delete_data)
+                        
+                        if delete_response.status_code not in [200, 404]:
+                            print(f"파일 삭제 실패: {file_path} - {delete_response.status_code}")
+                            return False
+                        else:
+                            print(f"파일 삭제 성공: {file_path}")
+            
+            print(f"GitHub 강의 폴더 삭제 완료: {dir_path}")
+            return True
+            
+    except Exception as e:
+        print(f"GitHub 강의 폴더 삭제 오류: {e}")
+        return False
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True) 
