@@ -2161,9 +2161,11 @@ class SlideScribeApp {
     async loadRecordsForParser() {
         return await this.loadRecordsGeneric(this.srtParser.selectedLecture, 'parserRecordSelect', '타이머 기록을 선택하세요...', '');
     }
-    
+
     onParserRecordSelectChange(recordFile) {
+        console.log('Parser 기록 선택:', recordFile);
         this.srtParser.selectedRecord = recordFile;
+        console.log('srtParser.selectedRecord 설정됨:', this.srtParser.selectedRecord);
         const selectBtn = document.getElementById('selectParserRecordBtn');
         selectBtn.disabled = !recordFile;
     }
@@ -2275,15 +2277,24 @@ class SlideScribeApp {
 
             console.log('파싱 시작:', this.srtParser.selectedLecture, this.srtParser.selectedRecord);
             
-            // 로컬 스토리지에서 기록 가져오기
-            const records = this.getStoredRecords(this.srtParser.selectedLecture);
-            const recordData = records[this.srtParser.selectedRecord];
+            // GitHub API에서 타이머 기록 로드
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records/${this.srtParser.selectedRecord}`);
             
-            if (!recordData || !Array.isArray(recordData) || recordData.length === 0) {
-                throw new Error('타이머 기록을 찾을 수 없거나 유효하지 않습니다');
+            if (!response.ok) {
+                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success || !data.record) {
+                throw new Error('타이머 기록을 찾을 수 없습니다');
             }
 
-            const timerRecord = recordData;
+            const timerRecord = data.record.records || [];
+            
+            if (!Array.isArray(timerRecord) || timerRecord.length === 0) {
+                throw new Error('유효한 타이머 기록이 없습니다');
+            }
             
             // Parse SRT content
             const subtitles = this.parseSrtContent(srtContent);
