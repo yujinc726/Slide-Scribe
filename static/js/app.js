@@ -1194,6 +1194,7 @@ class SlideScribeApp {
             // 전송할 데이터 준비
             const requestData = {
                 session_name: String(recordName).trim(),
+                lecture_name: String(this.timerState.currentLectureName || sessionName).trim(),
                 records: validatedSlides
             };
             
