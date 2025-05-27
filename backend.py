@@ -12,6 +12,16 @@ import re
 from datetime import datetime
 from pathlib import Path
 from functools import lru_cache
+import hashlib
+import uuid
+from tempfile import NamedTemporaryFile
+import base64
+import requests
+from dotenv import load_dotenv
+import httpx
+
+# .env 파일 로드
+load_dotenv()
 
 app = FastAPI(
     title="Slide Scribe",
@@ -32,8 +42,26 @@ UPLOADS_DIR = DATA_DIR / "uploads"
 LECTURES_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Users file
+USERS_FILE = DATA_DIR / "users.json"
+
 # SRT parsing utilities
 _TIME_RE = re.compile(r"(?P<h>\d{2}):(?P<m>\d{2}):(?P<s>\d{2})[.,](?P<ms>\d{3})")
+
+# 임시 SRT 파일 저장을 위한 딕셔너리
+temp_srt_files = {}
+
+# GitHub 설정
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "yujinc726/Slide-Scribe_data")
+GITHUB_API_BASE = "https://api.github.com"
+
+if GITHUB_TOKEN:
+    print(f"GitHub 레포지토리: {GITHUB_REPO}")
+    print("GitHub 토큰이 설정되었습니다.")
+else:
+    print("⚠️  GitHub 토큰이 설정되지 않았습니다. 환경변수 GITHUB_TOKEN을 설정해주세요.")
+    print("   사용자 데이터는 로컬 백업으로만 저장됩니다.")
 
 @lru_cache(maxsize=4096)
 def parse_srt_time(time_str: str) -> float:
@@ -135,6 +163,20 @@ class TimerSession(BaseModel):
 class LectureCreate(BaseModel):
     name: str
 
+# User Models
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class User(BaseModel):
+    username: str
+    password_hash: str
+    created_at: str
+
 # Helper functions
 def get_lecture_dir(lecture_name: str) -> Path:
     """Get the directory path for a lecture"""
@@ -166,13 +208,203 @@ def generate_filename() -> str:
     timestamp = now.strftime("%H%M%S")
     return f"{date}_{timestamp}.json"
 
+def hash_password(password: str) -> str:
+    """비밀번호를 해시화합니다."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def get_github_headers():
+    """GitHub API용 헤더 반환"""
+    if not GITHUB_TOKEN:
+        return None
+    return {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    }
+
+async def get_github_file_content(file_path: str) -> Optional[Dict]:
+    """GitHub에서 파일 내용을 가져옵니다."""
+    headers = get_github_headers()
+    if not headers:
+        return None
+        
+    try:
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{file_path}"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            
+            if response.status_code == 404:
+                return {}  # 파일이 없으면 빈 딕셔너리 반환
+            
+            if response.status_code != 200:
+                print(f"GitHub API 오류: {response.status_code}")
+                return None
+                
+            data = response.json()
+            content = base64.b64decode(data['content']).decode('utf-8')
+            return json.loads(content)
+            
+    except Exception as e:
+        print(f"GitHub에서 파일 읽기 실패 ({file_path}): {e}")
+        return None
+
+async def save_github_file_content(file_path: str, content: Dict, message: str = "Update file") -> bool:
+    """GitHub에 파일 내용을 저장합니다."""
+    headers = get_github_headers()
+    if not headers:
+        return False
+        
+    try:
+        # 먼저 기존 파일이 있는지 확인하여 SHA를 가져옵니다.
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}/contents/{file_path}"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            
+            sha = None
+            if response.status_code == 200:
+                sha = response.json()['sha']
+            
+            # 파일 내용을 JSON 문자열로 변환하고 Base64 인코딩
+            content_str = json.dumps(content, ensure_ascii=False, indent=2)
+            content_b64 = base64.b64encode(content_str.encode('utf-8')).decode('utf-8')
+            
+            # 파일 업데이트/생성 요청
+            data = {
+                "message": message,
+                "content": content_b64
+            }
+            
+            if sha:
+                data["sha"] = sha
+            
+            put_response = await client.put(url, headers=headers, json=data)
+            
+            if put_response.status_code in [200, 201]:
+                print(f"GitHub에 파일 저장 성공: {file_path}")
+                return True
+            else:
+                print(f"GitHub 파일 저장 실패: {put_response.status_code}")
+                return False
+                
+    except Exception as e:
+        print(f"GitHub 파일 저장 오류: {e}")
+        return False
+
+async def load_users_from_github() -> Dict[str, User]:
+    """GitHub에서 사용자 정보를 로드합니다. 실패시 로컬 백업 사용."""
+    # 먼저 GitHub에서 시도
+    github_data = await get_github_file_content("users.json")
+    
+    if github_data is not None:
+        try:
+            users_data = github_data["content"]
+            users = {username: User(**user_data) for username, user_data in users_data.items()}
+            
+            # 로컬에 백업 저장
+            await save_local_backup("users.json", users_data)
+            print("GitHub에서 사용자 데이터 로드 성공")
+            return users
+            
+        except Exception as e:
+            print(f"GitHub 사용자 데이터 파싱 오류: {e}")
+    
+    # GitHub 실패시 로컬 백업 사용
+    print("GitHub에서 로드 실패, 로컬 백업 사용 시도")
+    return await load_users_from_local_backup()
+
+async def save_users_to_github(users: Dict[str, User]) -> bool:
+    """사용자 정보를 GitHub에 저장합니다. 실패시 로컬에만 저장."""
+    users_data = {username: user.dict() for username, user in users.items()}
+    
+    # GitHub에 저장 시도
+    github_success = await save_github_file_content("users.json", users_data, "Update users data")
+    
+    # 로컬 백업은 항상 저장
+    local_success = await save_local_backup("users.json", users_data)
+    
+    if github_success:
+        print("GitHub에 사용자 데이터 저장 성공")
+        return True
+    elif local_success:
+        print("GitHub 저장 실패, 로컬 백업에만 저장됨")
+        return True
+    else:
+        print("GitHub과 로컬 모두 저장 실패")
+        return False
+
+async def save_local_backup(filename: str, data: Dict) -> bool:
+    """로컬에 백업 파일을 저장합니다."""
+    try:
+        backup_file = DATA_DIR / filename
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"로컬 백업 저장 오류: {e}")
+        return False
+
+async def load_users_from_local_backup() -> Dict[str, User]:
+    """로컬 백업에서 사용자 정보를 로드합니다."""
+    try:
+        backup_file = DATA_DIR / "users.json"
+        if backup_file.exists():
+            with open(backup_file, 'r', encoding='utf-8') as f:
+                users_data = json.load(f)
+            print("로컬 백업에서 사용자 데이터 로드 성공")
+            return {username: User(**user_data) for username, user_data in users_data.items()}
+    except Exception as e:
+        print(f"로컬 백업 로드 오류: {e}")
+    
+    print("로컬 백업도 없음, 빈 사용자 데이터 반환")
+    return {}
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """비밀번호를 검증합니다."""
+    return hash_password(password) == password_hash
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "message": "Slide Scribe API is running"}
+    return {
+        "status": "healthy", 
+        "message": "Slide Scribe API is running",
+        "github_configured": bool(GITHUB_TOKEN and GITHUB_REPO)
+    }
+
+@app.get("/api/github/status")
+async def github_status():
+    """GitHub 연결 상태를 확인합니다."""
+    try:
+        # GitHub API 기본 연결 테스트
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO}"
+        headers = get_github_headers()
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            repo_info = response.json()
+            return {
+                "status": "connected",
+                "repository": repo_info.get("full_name"),
+                "private": repo_info.get("private"),
+                "message": "GitHub 연결 성공"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"GitHub API 오류: {response.status_code}",
+                "details": response.text
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"GitHub 연결 실패: {str(e)}"
+        }
 
 # Lecture management endpoints
 @app.get("/api/lectures")
@@ -579,6 +811,91 @@ async def parse_srt_with_timer_data(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# User Management APIs
+@app.post("/api/auth/register")
+async def register_user(user_data: UserCreate):
+    """새 사용자를 등록합니다."""
+    users = await load_users_from_github()
+    
+    # 사용자명 중복 체크
+    if user_data.username in users:
+        raise HTTPException(status_code=400, detail="이미 존재하는 사용자명입니다")
+    
+    # 새 사용자 생성
+    new_user = User(
+        username=user_data.username,
+        password_hash=hash_password(user_data.password),
+        created_at=datetime.now().isoformat()
+    )
+    
+    users[user_data.username] = new_user
+    await save_users_to_github(users)
+    
+    return {
+        "success": True,
+        "message": "회원가입이 완료되었습니다",
+        "user": {
+            "username": new_user.username,
+            "created_at": new_user.created_at
+        }
+    }
+
+@app.post("/api/auth/login")
+async def login_user(user_data: UserLogin):
+    """사용자 로그인을 처리합니다."""
+    users = await load_users_from_github()
+    
+    # 사용자 존재 확인
+    if user_data.username not in users:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다")
+    
+    user = users[user_data.username]
+    
+    # 비밀번호 확인
+    if not verify_password(user_data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다")
+    
+    return {
+        "success": True,
+        "message": "로그인 성공",
+        "user": {
+            "username": user.username,
+            "created_at": user.created_at
+        }
+    }
+
+@app.get("/api/auth/users")
+async def get_all_users():
+    """모든 사용자 목록을 반환합니다 (관리용)."""
+    users = await load_users_from_github()
+    return {
+        "users": [
+            {
+                "username": user.username,
+                "created_at": user.created_at
+            }
+            for user in users.values()
+        ]
+    }
+
+@app.delete("/api/auth/users/{username}")
+async def delete_user(username: str):
+    """사용자를 삭제합니다."""
+    users = await load_users_from_github()
+    
+    if username not in users:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
+    
+    del users[username]
+    await save_users_to_github(users)
+    
+    # 해당 사용자의 데이터 폴더도 삭제 (선택사항)
+    user_data_dir = DATA_DIR / f"user_{username}"
+    if user_data_dir.exists():
+        shutil.rmtree(user_data_dir)
+    
+    return {"success": True, "message": f"사용자 {username}이 삭제되었습니다"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True) 

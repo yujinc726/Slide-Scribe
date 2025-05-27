@@ -1,2 +1,41 @@
 timer_logs/
 __pycache__/
+
+# 환경변수 파일
+.env
+.env.local
+.env.production
+
+# 데이터 파일
+data/
+*.json
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그 파일
+*.log
+
+# 임시 파일
+*.tmp
+*.temp

@@ -45,8 +45,7 @@ class SlideScribeApp {
 
         this.userState = {
             isLoggedIn: false,
-            currentUser: null,
-            users: this.getStoredUsers()
+            currentUser: null
         };
 
         this.toasts = [];
@@ -1214,11 +1213,11 @@ class SlideScribeApp {
 
     // ===== Modal Functions =====
     openModal() {
-        document.getElementById('loginModal').classList.add('active');
+        document.getElementById('loginModal').classList.add('show');
     }
 
     closeModal() {
-        document.getElementById('loginModal').classList.remove('active');
+        document.getElementById('loginModal').classList.remove('show');
     }
 
     switchAuthTab(tabName) {
@@ -2595,7 +2594,7 @@ class SlideScribeApp {
         this.renderJsonTable(data);
         
         if (modal) {
-            modal.classList.add('active');
+            modal.classList.add('show');
         }
     }
 
@@ -2871,7 +2870,7 @@ class SlideScribeApp {
     closeJsonTableEditor() {
         const modal = document.getElementById('jsonTableModal');
         if (modal) {
-            modal.classList.remove('active');
+            modal.classList.remove('show');
         }
         this.settingsState.currentEditingFile = null;
         this.settingsState.currentEditingData = null;
@@ -3171,16 +3170,8 @@ class SlideScribeApp {
 
     }
 
-    // User Authentication Methods
-    getStoredUsers() {
-        const users = localStorage.getItem('slide_scribe_users');
-        return users ? JSON.parse(users) : [];
-    }
-
-    saveStoredUsers(users) {
-        localStorage.setItem('slide_scribe_users', JSON.stringify(users));
-    }
-
+    // User Authentication Methods (Updated to use backend API)
+    
     checkLoginStatus() {
         const currentUser = localStorage.getItem('slide_scribe_current_user');
         if (currentUser) {
@@ -3195,44 +3186,44 @@ class SlideScribeApp {
         const userInfo = document.querySelector('.user-info span');
         
         if (this.userState.isLoggedIn && this.userState.currentUser) {
-            // Update login button to logout
+            // 로그인 버튼을 로그아웃 버튼으로 변경
             if (loginBtn) {
-                loginBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
+                loginBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> 로그아웃';
                 loginBtn.classList.remove('btn-outline');
                 loginBtn.classList.add('btn-primary');
             }
             
-            // Update user info
+            // 사용자 정보 업데이트
             if (userInfo) {
                 userInfo.textContent = this.userState.currentUser.username;
             }
             
-            // Load user preferences
+            // 사용자 설정 로드
             this.settingsState.preferences = this.getUserPreferences();
             this.loadPreferences();
             
-            // Refresh user-specific data
+            // 사용자별 데이터 새로고침
             this.refreshUserData();
         } else {
-            // Reset to login state
+            // 로그인 상태로 리셋
             if (loginBtn) {
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 로그인';
                 loginBtn.classList.remove('btn-primary');
                 loginBtn.classList.add('btn-outline');
             }
             
             if (userInfo) {
-                userInfo.textContent = 'Guest User';
+                userInfo.textContent = '게스트 사용자';
             }
             
-            // Clear user-specific data
+            // 사용자별 데이터 정리
             this.clearUserData();
         }
     }
 
     async refreshUserData() {
         try {
-            // Refresh all data that depends on user login
+            // 사용자 로그인에 의존하는 모든 데이터 새로고침
             await Promise.all([
                 this.loadLectures(),
                 this.loadLecturesForParser(),
@@ -3240,12 +3231,12 @@ class SlideScribeApp {
             ]);
             this.updateHomeStats();
         } catch (error) {
-            console.error('Error refreshing user data:', error);
+            console.error('사용자 데이터 새로고침 오류:', error);
         }
     }
 
     clearUserData() {
-        // Clear current selections and data
+        // 현재 선택사항과 데이터 정리
         this.timerState.currentLecture = null;
         this.timerState.currentRecord = null;
         this.timerState.slides = [];
@@ -3256,10 +3247,10 @@ class SlideScribeApp {
             totalTime: 0
         };
         
-        // Clear UI elements
+        // UI 요소 정리
         const lectureSelect = document.getElementById('lectureSelect');
         if (lectureSelect) {
-            lectureSelect.innerHTML = '<option value="">Choose a lecture...</option>';
+            lectureSelect.innerHTML = '<option value="">강의를 선택하세요...</option>';
         }
         
         const recordSelect = document.getElementById('recordSelect');
@@ -3267,7 +3258,7 @@ class SlideScribeApp {
             recordSelect.innerHTML = '<option value="new">새 기록 시작</option>';
         }
         
-        // Update stats display
+        // 통계 표시 업데이트
         this.updateStatsDisplay();
     }
 
@@ -3278,41 +3269,48 @@ class SlideScribeApp {
         const password = document.getElementById('loginPassword').value;
         
         if (!username || !password) {
-            this.showToast('Please fill in all fields', 'error');
+            this.showToast('모든 필드를 입력해주세요', 'error');
             return;
         }
 
-        // Find user in stored users
-        const user = this.userState.users.find(u => u.username === username);
-        
-        if (!user) {
-            this.showToast('User not found', 'error');
-            return;
-        }
+        try {
+            // 백엔드 API 호출로 로그인 처리
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
 
-        // Simple password check (in real app, use proper hashing)
-        if (user.password !== password) {
-            this.showToast('Invalid password', 'error');
-            return;
-        }
+            const data = await response.json();
 
-        // Login successful
-        this.userState.currentUser = { 
-            username: user.username, 
-            email: user.email,
-            joinDate: user.joinDate 
-        };
-        this.userState.isLoggedIn = true;
-        
-        // Store login state
-        localStorage.setItem('slide_scribe_current_user', JSON.stringify(this.userState.currentUser));
-        
-        this.updateUserInterface();
-        this.closeModal();
-        this.showToast(`Welcome back, ${user.username}!`, 'success');
-        
-        // Clear form
-        document.getElementById('loginForm').reset();
+            if (!response.ok) {
+                this.showToast(data.detail || '로그인에 실패했습니다', 'error');
+                return;
+            }
+
+            // 로그인 성공
+            this.userState.currentUser = data.user;
+            this.userState.isLoggedIn = true;
+            
+            // 로그인 상태를 로컬스토리지에 저장 (세션 유지용)
+            localStorage.setItem('slide_scribe_current_user', JSON.stringify(this.userState.currentUser));
+            
+            this.updateUserInterface();
+            this.closeModal();
+            this.showToast(`환영합니다, ${data.user.username}님!`, 'success');
+            
+            // 폼 초기화
+            document.getElementById('loginForm').reset();
+
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showToast('로그인 중 오류가 발생했습니다', 'error');
+        }
     }
 
     async handleRegister(event) {
@@ -3323,55 +3321,57 @@ class SlideScribeApp {
         const confirmPassword = document.getElementById('confirmPassword').value;
         
         if (!username || !password || !confirmPassword) {
-            this.showToast('Please fill in all fields', 'error');
+            this.showToast('모든 필드를 입력해주세요', 'error');
             return;
         }
 
         if (password !== confirmPassword) {
-            this.showToast('Passwords do not match', 'error');
+            this.showToast('비밀번호가 일치하지 않습니다', 'error');
             return;
         }
 
         if (password.length < 6) {
-            this.showToast('Password must be at least 6 characters', 'error');
+            this.showToast('비밀번호는 최소 6자 이상이어야 합니다', 'error');
             return;
         }
 
-        // Check if username already exists
-        const existingUser = this.userState.users.find(u => u.username === username);
-        if (existingUser) {
-            this.showToast('Username already exists', 'error');
-            return;
+        try {
+            // 백엔드 API 호출로 회원가입 처리
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                this.showToast(data.detail || '회원가입에 실패했습니다', 'error');
+                return;
+            }
+
+            // 회원가입 성공 후 자동 로그인
+            this.userState.currentUser = data.user;
+            this.userState.isLoggedIn = true;
+            
+            localStorage.setItem('slide_scribe_current_user', JSON.stringify(this.userState.currentUser));
+            
+            this.updateUserInterface();
+            this.closeModal();
+            this.showToast(`회원가입이 완료되었습니다! 환영합니다, ${username}님!`, 'success');
+            
+            // 폼 초기화
+            document.getElementById('registerForm').reset();
+
+        } catch (error) {
+            console.error('Register error:', error);
+            this.showToast('회원가입 중 오류가 발생했습니다', 'error');
         }
-
-        // Create new user
-        const newUser = {
-            username,
-            password, // In real app, hash this
-            email: `${username}@example.com`, // Simplified for demo
-            joinDate: new Date().toISOString()
-        };
-
-        // Add to users array and save
-        this.userState.users.push(newUser);
-        this.saveStoredUsers(this.userState.users);
-
-        // Auto-login the new user
-        this.userState.currentUser = { 
-            username: newUser.username, 
-            email: newUser.email,
-            joinDate: newUser.joinDate 
-        };
-        this.userState.isLoggedIn = true;
-        
-        localStorage.setItem('slide_scribe_current_user', JSON.stringify(this.userState.currentUser));
-        
-        this.updateUserInterface();
-        this.closeModal();
-        this.showToast(`Account created successfully! Welcome, ${username}!`, 'success');
-        
-        // Clear form
-        document.getElementById('registerForm').reset();
     }
 
     logout() {
@@ -3381,9 +3381,9 @@ class SlideScribeApp {
         localStorage.removeItem('slide_scribe_current_user');
         
         this.updateUserInterface();
-        this.showToast('Logged out successfully', 'info');
+        this.showToast('로그아웃되었습니다', 'info');
         
-        // Optionally clear user-specific data or redirect to home
+        // 홈 탭으로 이동
         this.switchTab('home');
     }
 
@@ -3429,7 +3429,7 @@ class SlideScribeApp {
         const updatedLectures = lectures.filter(l => l !== lecture);
         this.saveStoredLectures(updatedLectures);
         
-        // Also remove all records for this lecture
+        // 해당 강의의 모든 기록도 삭제
         const key = this.getUserStorageKey(`records_${lecture}`);
         localStorage.removeItem(key);
     }
