@@ -1173,7 +1173,13 @@ class SlideScribeApp {
             // 백엔드 TimerSession 모델에 맞는 데이터 구조 생성
             const sessionData = {
                 lecture_name: recordName,  // 기록명을 '강의명_시각' 형태로 사용
-                records: this.slides,      // SlideRecord 배열 (이미 올바른 구조)
+                records: this.slides.map(slide => ({
+                    slide_title: slide.slide_title || '',
+                    slide_number: String(slide.slide_number || ''),
+                    start_time: slide.start_time || '00:00:00.000',
+                    end_time: slide.end_time || '00:00:00.000',
+                    notes: slide.notes || ''
+                })),
                 created_at: timestamp.toISOString(),
                 updated_at: timestamp.toISOString()
             };
