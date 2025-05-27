@@ -3532,6 +3532,9 @@ class SlideScribeApp {
             jsonTableBackdrop.addEventListener('click', () => this.closeJsonTableEditor());
         }
 
+        // Timer Records Modal listeners
+        this.setupTimerRecordsModalListeners();
+
     }
 
     // User Authentication Methods (Updated to use backend API)
@@ -4109,10 +4112,15 @@ class SlideScribeApp {
 
     closeTimerRecordsModal() {
         const modal = document.getElementById('timerRecordsModal');
-        modal.classList.remove('show');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        
+        // body overflow 복구
+        document.body.style.overflow = '';
         
         // 상태 초기화
-        this.currentTimerRecordsLecture = null;
+        this.currentLectureForRecords = null;
         
         // 파일 업로드 영역 초기화
         this.resetRecordUploadArea();
@@ -4123,6 +4131,13 @@ class SlideScribeApp {
         const closeBtn = document.getElementById('closeTimerRecordsBtn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => this.closeTimerRecordsModal());
+        }
+
+        // 백드롭 클릭으로 모달 닫기
+        const timerRecordsModal = document.getElementById('timerRecordsModal');
+        const timerRecordsBackdrop = timerRecordsModal?.querySelector('.modal-backdrop');
+        if (timerRecordsBackdrop) {
+            timerRecordsBackdrop.addEventListener('click', () => this.closeTimerRecordsModal());
         }
 
         // 새로고침 버튼
