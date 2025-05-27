@@ -3825,22 +3825,13 @@ input:checked + .switch-slider:before {
 }
 
 [data-theme="dark"] .btn-lecture-records {
-    color: #6dd3f0;
-    border-color: rgba(109, 211, 240, 0.3);
-}
-
-[data-theme="dark"] .btn-lecture-records:hover {
-    background: rgba(109, 211, 240, 0.1);
-}
-
-[data-theme="dark"] .btn-lecture-records {
     background: rgba(40, 167, 69, 0.2);
     color: #90ee90;
     border-color: rgba(144, 238, 144, 0.3);
 }
 
 [data-theme="dark"] .btn-lecture-records:hover {
-    background: rgba(144, 238, 144, 0.1);
+    background: rgba(40, 167, 69, 0.3);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
 }
