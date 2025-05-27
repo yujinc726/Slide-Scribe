@@ -1341,6 +1341,8 @@ class SlideScribeApp {
                 return [];
             }
 
+            console.log('기록 로드 중, 강의 파라미터:', lectureId);
+
             // GitHub API에서 해당 강의의 기록들을 로드
             const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${lectureId}/timer-records`);
             
@@ -1349,6 +1351,7 @@ class SlideScribeApp {
             }
             
             const data = await response.json();
+            console.log('로드된 기록 데이터:', data);
             
             const records = data.records || [];
             const select = document.getElementById(selectElementId);
@@ -2159,112 +2162,10 @@ class SlideScribeApp {
     }
     
     async loadRecordsForParser() {
-        return await this.loadRecordsGeneric(this.srtParser.selectedLecture, 'parserRecordSelect', '타이머 기록을 선택하세요...', '');
-    }
-
-    onParserRecordSelectChange(recordFile) {
-        console.log('Parser 기록 선택:', recordFile);
-        this.srtParser.selectedRecord = recordFile;
-        console.log('srtParser.selectedRecord 설정됨:', this.srtParser.selectedRecord);
-        const selectBtn = document.getElementById('selectParserRecordBtn');
-        selectBtn.disabled = !recordFile;
-    }
-    
-    async proceedToSrtFileUpload() {
-        if (!this.srtParser.selectedRecord) return;
-        
-        // 기록 이름 찾기
-        let recordName = this.srtParser.selectedRecord;
-        
-        // recordSelect에서 선택된 옵션의 텍스트 가져오기
-        const recordSelect = document.getElementById('parserRecordSelect');
-        const selectedOption = recordSelect.querySelector(`option[value="${this.srtParser.selectedRecord}"]`);
-        if (selectedOption) {
-            recordName = selectedOption.textContent;
-        }
-        
-        // Update selection info - 사용자 친화적인 이름으로 표시
-        document.getElementById('selectedParserRecord').textContent = recordName;
-        
-        // Show selection info
-        document.getElementById('parserSelectionInfo').style.display = 'block';
-        
-        // Animate transition
-        await this.animateStepTransition('parserRecordSelectionStep', 'srtFileUploadStep');
-        this.srtParser.currentStep = 'srtUpload';
-        
-        this.showToast('Now upload your SRT file', 'info');
-    }
-    
-    handleSrtFileSelect(event) {
-        const file = event.target.files[0];
-        
-        if (!file) return;
-        
-        // Check file type
-        if (!file.name.toLowerCase().endsWith('.srt')) {
-            this.showToast('Please select a valid SRT file', 'error');
-                return;
-            }
-            
-        // Store the file
-        this.srtParser.selectedFile = file;
-        
-        // Update UI
-        const uploadArea = document.getElementById('srtUploadArea');
-        const uploadBtn = document.getElementById('uploadSrtBtn');
-        
-        uploadArea.classList.add('file-selected');
-        uploadArea.innerHTML = `
-            <div class="upload-icon">
-                <i class="fas fa-file-alt"></i>
-            </div>
-            <div class="upload-text">
-                <h5>${file.name}</h5>
-                <p>File selected successfully</p>
-                <small>Size: ${(file.size / 1024).toFixed(2)} KB</small>
-            </div>
-        `;
-        
-        uploadBtn.disabled = false;
-        uploadBtn.innerHTML = '<i class="fas fa-arrow-right"></i> Continue to Parse';
-        
-        // Update selection info
-        document.getElementById('selectedSrtFile').textContent = file.name;
-        
-        this.showToast('SRT file selected successfully', 'success');
-    }
-    
-    async proceedToParserInterface() {
-        console.log('proceedToParserInterface called');
-        console.log('selectedFile:', this.srtParser.selectedFile);
-        
-        if (!this.srtParser.selectedFile) {
-            console.log('No SRT file selected, returning');
-            this.showToast('Please select an SRT file first', 'error');
-            return;
-        }
-        
-        try {
-            console.log('Animating transition...');
-            // Animate transition
-            await this.animateStepTransition('srtFileUploadStep', 'parserInterface');
-            this.srtParser.currentStep = 'interface';
-            
-            // Show processing message
-            this.showToast('Processing files...', 'info');
-            
-            console.log('Reading SRT file content...');
-            // Read SRT file content
-            const srtContent = await this.readFileAsText(this.srtParser.selectedFile);
-            
-            // Immediately start parsing
-            await this.parseFilesLocally(srtContent);
-            
-        } catch (error) {
-            console.error('Error in proceedToParserInterface:', error);
-            this.showToast('Error processing files: ' + error.message, 'error');
-        }
+        // 강의명을 사용하여 기록을 로드합니다
+        console.log('loadRecordsForParser 호출됨, 강의명:', this.srtParser.selectedLectureName);
+        const records = await this.loadRecordsGeneric(this.srtParser.selectedLectureName || this.srtParser.selectedLecture, 'parserRecordSelect', '타이머 기록을 선택하세요...', '');
+        return records;
     }
     
     async parseFilesLocally(srtContent) {
@@ -2276,15 +2177,22 @@ class SlideScribeApp {
             }
 
             console.log('파싱 시작:', this.srtParser.selectedLecture, this.srtParser.selectedRecord);
+            console.log('강의명 사용:', this.srtParser.selectedLectureName);
+            
+            // 강의명을 사용하여 API 요청 - 강의 ID 대신 강의명 사용
+            const apiUrl = `/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLectureName}/timer-records/${this.srtParser.selectedRecord}`;
+            console.log('API 요청 URL (강의명 사용):', apiUrl);
             
             // GitHub API에서 타이머 기록 로드
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records/${this.srtParser.selectedRecord}`);
+            const response = await fetch(apiUrl);
             
             if (!response.ok) {
+                console.error('API 오류 응답:', response.status, response.statusText);
                 throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
             }
             
             const data = await response.json();
+            console.log('API 응답 데이터:', data);
             
             if (!data.success || !data.record) {
                 throw new Error('타이머 기록을 찾을 수 없습니다');
@@ -2298,6 +2206,7 @@ class SlideScribeApp {
             
             // Parse SRT content
             const subtitles = this.parseSrtContent(srtContent);
+            console.log('파싱된 SRT 자막 수:', subtitles.length);
             
             // Match timer records with SRT subtitles
             const results = this.matchTimerWithSrt(timerRecord, subtitles);
