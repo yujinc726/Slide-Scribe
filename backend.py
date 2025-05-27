@@ -1745,18 +1745,39 @@ async def get_github_directory_contents(dir_path: str) -> List[str]:
 async def upload_user_timer_record(username: str, lecture_id: str, file: UploadFile = File(...)):
     """사용자의 특정 강의에 타이머 기록 JSON 파일을 업로드합니다."""
     try:
-        # 파일 형식 검증
-        if not file.filename.endswith('.json'):
+        # 디버깅 로그
+        print(f"Upload request - Username: {username}, Lecture ID: {lecture_id}")
+        print(f"File info - Name: {file.filename}, Content-Type: {file.content_type}, Size: {file.size}")
+        
+        # 파일 형식 검증 (파일명과 Content-Type 모두 확인)
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="파일명이 비어있습니다")
+            
+        if not file.filename.lower().endswith('.json'):
+            print(f"Invalid file extension: {file.filename}")
             raise HTTPException(status_code=400, detail="JSON 파일만 업로드 가능합니다")
+        
+        # Content-Type 검증 (선택적, 브라우저마다 다를 수 있음)
+        if file.content_type and not file.content_type.startswith('application/json'):
+            print(f"Warning: Content-Type is {file.content_type}, but accepting anyway")
+        
+        # 파일 크기 검증
+        if file.size and file.size > 10 * 1024 * 1024:  # 10MB
+            raise HTTPException(status_code=400, detail="파일 크기가 너무 큽니다 (최대 10MB)")
         
         # 파일 내용 읽기 및 검증
         content = await file.read()
+        print(f"File content length: {len(content)} bytes")
+        
         try:
             json_content = content.decode('utf-8')
             json_data = json.loads(json_content)
-        except UnicodeDecodeError:
+            print(f"JSON parsing successful, data type: {type(json_data)}")
+        except UnicodeDecodeError as e:
+            print(f"Encoding error: {e}")
             raise HTTPException(status_code=400, detail="올바르지 않은 파일 인코딩입니다. UTF-8로 인코딩된 JSON 파일을 사용하세요")
         except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")
             raise HTTPException(status_code=400, detail=f"올바르지 않은 JSON 형식입니다: {str(e)}")
         
         # JSON 구조 검증 (타이머 기록용)
@@ -1764,21 +1785,28 @@ async def upload_user_timer_record(username: str, lecture_id: str, file: UploadF
             # 표준 타이머 세션 형식
             records = json_data['records']
             session_name = json_data.get('session_name', json_data.get('lecture_name', Path(file.filename).stem))
+            print(f"Standard timer session format detected, records count: {len(records)}")
         elif isinstance(json_data, list):
             # 기록 배열 형식
             records = json_data
             session_name = Path(file.filename).stem
+            print(f"Records array format detected, records count: {len(records)}")
         else:
+            print(f"Invalid JSON structure, data keys: {list(json_data.keys()) if isinstance(json_data, dict) else 'not a dict'}")
             raise HTTPException(status_code=400, detail="올바르지 않은 JSON 구조입니다. 'records' 필드가 있는 객체이거나 기록 배열이어야 합니다")
         
         # 기록 구조 검증
         required_fields = ['slide_title', 'slide_number', 'start_time', 'end_time']
         for i, record in enumerate(records):
             if not isinstance(record, dict):
+                print(f"Record {i+1} is not a dict: {type(record)}")
                 raise HTTPException(status_code=400, detail=f"기록 {i+1}이 올바른 객체가 아닙니다")
             for field in required_fields:
                 if field not in record:
+                    print(f"Record {i+1} missing field: {field}, available fields: {list(record.keys())}")
                     raise HTTPException(status_code=400, detail=f"기록 {i+1}에서 필수 필드가 누락되었습니다: {field}")
+        
+        print("Record structure validation passed")
         
         # 강의 존재 확인
         current_data = await load_user_data_from_github(username, "lectures")
@@ -1790,6 +1818,7 @@ async def upload_user_timer_record(username: str, lecture_id: str, file: UploadF
                 with open(lectures_file, 'r', encoding='utf-8') as f:
                     current_data = json.load(f)
             else:
+                print("No lectures file found")
                 raise HTTPException(status_code=404, detail="강의 목록을 찾을 수 없습니다")
         
         # 강의 찾기
@@ -1802,7 +1831,11 @@ async def upload_user_timer_record(username: str, lecture_id: str, file: UploadF
                 break
         
         if not target_lecture:
+            print(f"Lecture not found: {lecture_id}")
+            print(f"Available lectures: {[l.get('id') for l in lectures]}")
             raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다")
+        
+        print(f"Target lecture found: {target_lecture.get('name')}")
         
         # 타이머 기록 데이터 준비
         record_id = str(uuid.uuid4())
@@ -1817,8 +1850,12 @@ async def upload_user_timer_record(username: str, lecture_id: str, file: UploadF
             "uploaded_from": file.filename
         }
         
+        print(f"Saving timer record with ID: {record_id}")
+        
         # 독립된 JSON 파일로 저장
         github_success = await save_timer_record_file(username, lecture_id, record_id, timer_record)
+        
+        print(f"Timer record saved successfully, GitHub sync: {github_success}")
         
         return {
             "success": True,
@@ -1837,6 +1874,9 @@ async def upload_user_timer_record(username: str, lecture_id: str, file: UploadF
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Unexpected error in upload_user_timer_record: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"타이머 기록 저장 실패: {str(e)}")
 
 if __name__ == "__main__":

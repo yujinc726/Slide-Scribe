@@ -4311,6 +4311,13 @@ class SlideScribeApp {
         const file = event.target.files[0];
         if (!file) return;
 
+        console.log('File upload started:', {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: file.lastModified
+        });
+
         // JSON 파일 검증
         if (!file.name.toLowerCase().endsWith('.json')) {
             this.showToast('JSON 파일만 업로드 가능합니다.', 'error');
@@ -4325,20 +4332,54 @@ class SlideScribeApp {
 
         if (!this.currentLectureForRecords) {
             this.showToast('강의 정보가 없습니다', 'error');
+            console.error('No current lecture for records');
             return;
         }
 
+        console.log('Current lecture for records:', this.currentLectureForRecords);
+
         try {
+            // JSON 파일 내용 먼저 검증
+            const fileText = await this.readFileAsText(file);
+            console.log('File content read, length:', fileText.length);
+            
+            let jsonData;
+            try {
+                jsonData = JSON.parse(fileText);
+                console.log('JSON parsed successfully, type:', typeof jsonData);
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                this.showToast('올바르지 않은 JSON 형식입니다: ' + parseError.message, 'error');
+                return;
+            }
+
+            // 타이머 기록 구조 검증
+            const validation = this.validateTimerRecordJson(jsonData);
+            if (!validation.isValid) {
+                console.error('Validation failed:', validation.error);
+                this.showToast('JSON 구조 오류: ' + validation.error, 'error');
+                return;
+            }
+
+            console.log('Validation passed, preparing upload...');
+
             // FormData 생성하여 실제 파일 업로드
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.currentLectureForRecords.id}/timer-records/upload`, {
+            const uploadUrl = `/api/users/${this.userState.currentUser.username}/lectures/${this.currentLectureForRecords.id}/timer-records/upload`;
+            console.log('Upload URL:', uploadUrl);
+
+            const response = await fetch(uploadUrl, {
                 method: 'POST',
                 body: formData
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+
             const result = await response.json();
+            console.log('Response data:', result);
 
             if (response.ok) {
                 this.showToast(`"${file.name}" 업로드 완료`, 'success');
@@ -4349,12 +4390,13 @@ class SlideScribeApp {
                 // 기록 목록 자동 새로고침
                 await this.loadTimerRecords();
             } else {
+                console.error('Upload failed:', result);
                 this.showToast(result.detail || '업로드 실패', 'error');
             }
 
         } catch (error) {
             console.error('File upload error:', error);
-            this.showToast('파일 업로드 중 오류가 발생했습니다.', 'error');
+            this.showToast('파일 업로드 중 오류가 발생했습니다: ' + error.message, 'error');
         }
 
         // 파일 입력 초기화
@@ -4364,43 +4406,118 @@ class SlideScribeApp {
 
     validateTimerRecordJson(data) {
         try {
-            // 배열인지 확인
-            if (!Array.isArray(data)) {
-                return { isValid: false, error: '데이터는 배열 형태여야 합니다.' };
+            let records;
+            
+            // JSON 구조 확인 - 배열이거나 records 필드가 있는 객체
+            if (Array.isArray(data)) {
+                records = data;
+                console.log('JSON format: Direct array of records');
+            } else if (typeof data === 'object' && data !== null && 'records' in data) {
+                records = data.records;
+                console.log('JSON format: Object with records field');
+            } else {
+                return { 
+                    isValid: false, 
+                    error: '데이터는 배열이거나 "records" 필드가 있는 객체여야 합니다.' 
+                };
+            }
+
+            // records가 배열인지 확인
+            if (!Array.isArray(records)) {
+                return { 
+                    isValid: false, 
+                    error: 'records 데이터는 배열 형태여야 합니다.' 
+                };
+            }
+
+            if (records.length === 0) {
+                return { 
+                    isValid: false, 
+                    error: '최소 하나 이상의 기록이 필요합니다.' 
+                };
             }
 
             // 각 슬라이드 검증
-            for (let i = 0; i < data.length; i++) {
-                const slide = data[i];
+            for (let i = 0; i < records.length; i++) {
+                const slide = records[i];
                 
-                // 필수 필드 확인
-                if (!slide.hasOwnProperty('slide_number')) {
-                    return { isValid: false, error: `슬라이드 ${i + 1}: slide_number 필드가 없습니다.` };
+                if (typeof slide !== 'object' || slide === null) {
+                    return { 
+                        isValid: false, 
+                        error: `슬라이드 ${i + 1}: 객체가 아닙니다.` 
+                    };
                 }
                 
-                if (!slide.hasOwnProperty('start_time')) {
-                    return { isValid: false, error: `슬라이드 ${i + 1}: start_time 필드가 없습니다.` };
-                }
+                // 필수 필드 확인 (더 유연한 검증)
+                const requiredFields = ['slide_number', 'start_time', 'end_time'];
+                const optionalFields = ['slide_title', 'notes'];
                 
-                if (!slide.hasOwnProperty('end_time')) {
-                    return { isValid: false, error: `슬라이드 ${i + 1}: end_time 필드가 없습니다.` };
+                for (const field of requiredFields) {
+                    if (!slide.hasOwnProperty(field)) {
+                        return { 
+                            isValid: false, 
+                            error: `슬라이드 ${i + 1}: "${field}" 필드가 없습니다.` 
+                        };
+                    }
                 }
 
-                // 시간 형식 검증 (HH:MM:SS.sss 형태)
-                const timePattern = /^\d{2}:\d{2}:\d{2}\.\d{3}$/;
-                if (!timePattern.test(slide.start_time)) {
-                    return { isValid: false, error: `슬라이드 ${i + 1}: start_time 형식이 잘못되었습니다.` };
+                // slide_title이 없으면 기본값 설정
+                if (!slide.hasOwnProperty('slide_title')) {
+                    slide.slide_title = `슬라이드 ${slide.slide_number}`;
+                }
+
+                // notes가 없으면 빈 문자열 설정
+                if (!slide.hasOwnProperty('notes')) {
+                    slide.notes = '';
+                }
+
+                // 시간 형식 검증 (더 유연한 형식 지원)
+                const timePatterns = [
+                    /^\d{2}:\d{2}:\d{2}\.\d{3}$/,  // HH:MM:SS.sss
+                    /^\d{2}:\d{2}:\d{2}$/,        // HH:MM:SS
+                    /^\d{1,2}:\d{2}:\d{2}\.\d{3}$/, // H:MM:SS.sss
+                    /^\d{1,2}:\d{2}:\d{2}$/       // H:MM:SS
+                ];
+                
+                const isValidTimeFormat = (timeStr) => {
+                    return timePatterns.some(pattern => pattern.test(timeStr));
+                };
+                
+                if (!isValidTimeFormat(slide.start_time)) {
+                    return { 
+                        isValid: false, 
+                        error: `슬라이드 ${i + 1}: start_time 형식이 잘못되었습니다. (예: "00:01:30.000")` 
+                    };
                 }
                 
-                if (!timePattern.test(slide.end_time)) {
-                    return { isValid: false, error: `슬라이드 ${i + 1}: end_time 형식이 잘못되었습니다.` };
+                if (!isValidTimeFormat(slide.end_time)) {
+                    return { 
+                        isValid: false, 
+                        error: `슬라이드 ${i + 1}: end_time 형식이 잘못되었습니다. (예: "00:02:00.000")` 
+                    };
+                }
+
+                // 시간 로직 검증 (선택적)
+                try {
+                    const startMs = this.parseTimeToMs(slide.start_time);
+                    const endMs = this.parseTimeToMs(slide.end_time);
+                    
+                    if (endMs <= startMs) {
+                        console.warn(`슬라이드 ${i + 1}: 종료 시간이 시작 시간보다 빠르거나 같습니다.`);
+                        // 경고만 출력하고 계속 진행
+                    }
+                } catch (timeError) {
+                    console.warn(`슬라이드 ${i + 1}: 시간 파싱 오류 - ${timeError.message}`);
+                    // 시간 파싱 오류는 경고만 출력하고 계속 진행
                 }
             }
 
+            console.log(`Validation successful: ${records.length} records validated`);
             return { isValid: true };
 
         } catch (error) {
-            return { isValid: false, error: error.message };
+            console.error('Validation error:', error);
+            return { isValid: false, error: `검증 중 오류 발생: ${error.message}` };
         }
     }
 
