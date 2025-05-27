@@ -1315,6 +1315,11 @@ class SlideScribeApp {
 
             // GitHub API에서 해당 강의의 기록들을 로드
             const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`);
+            
+            if (!response.ok) {
+                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
             
             const records = data.records || [];
@@ -1330,7 +1335,7 @@ class SlideScribeApp {
             
         } catch (error) {
             console.error('Failed to load records:', error);
-            this.showToast('타이머 기록 로드 실패', 'error');
+            this.showToast('타이머 기록 로드 실패: ' + error.message, 'error');
         }
     }
 
@@ -1369,6 +1374,11 @@ class SlideScribeApp {
             
             // GitHub API에서 기록 내용 로드
             const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records/${recordId}`);
+            
+            if (!response.ok) {
+                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
             
             if (data.success && data.record && data.record.records) {
@@ -2156,6 +2166,11 @@ class SlideScribeApp {
             }
 
             const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records`);
+            
+            if (!response.ok) {
+                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
             
             const records = data.records || [];
@@ -2174,7 +2189,7 @@ class SlideScribeApp {
             }
         } catch (error) {
             console.error('Failed to load records:', error);
-            this.showToast('타이머 기록 로드 실패', 'error');
+            this.showToast('타이머 기록 로드 실패: ' + error.message, 'error');
         }
     }
     
@@ -2281,6 +2296,11 @@ class SlideScribeApp {
 
             // GitHub API에서 타이머 기록 로드
             const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records/${this.srtParser.selectedRecord}`);
+            
+            if (!response.ok) {
+                throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
             
             if (!data.success || !data.record) {
