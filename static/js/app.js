@@ -1169,9 +1169,16 @@ class SlideScribeApp {
         try {
             const sessionName = this.timerState.currentLectureName || 'Unknown Lecture';
             
-            // 현재 시간으로 기록 이름 생성
+            // 현재 시간으로 기록 이름 생성 - 사용자 친화적인 형식으로 변경
             const timestamp = new Date();
-            const recordName = `${sessionName}_${timestamp.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
+            const year = timestamp.getFullYear();
+            const month = (timestamp.getMonth() + 1).toString().padStart(2, '0');
+            const day = timestamp.getDate().toString().padStart(2, '0');
+            const hours = timestamp.getHours().toString().padStart(2, '0');
+            const minutes = timestamp.getMinutes().toString().padStart(2, '0');
+            
+            // 사용자 친화적인 형식: "강의명 - YYYY년 MM월 DD일 HH시 MM분"
+            const recordName = `${sessionName} - ${year}년 ${month}월 ${day}일 ${hours}시 ${minutes}분`;
             
             // 백엔드 TimerSession 모델에 맞는 데이터 구조 생성
             const sessionData = {
@@ -1181,8 +1188,10 @@ class SlideScribeApp {
                 updated_at: timestamp.toISOString()
             };
             
+            const url = `/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`;
+            
             // GitHub API를 통해 저장
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1190,15 +1199,21 @@ class SlideScribeApp {
                 body: JSON.stringify(sessionData)
             });
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                const responseText = await response.text();
+                throw new Error(`서버 응답 파싱 실패: ${response.status} ${response.statusText}`);
+            }
 
-            if (data.success) {
+            if (response.ok && data.success) {
                 this.showToast(`기록이 성공적으로 저장되었습니다 (${this.slides.length}개 슬라이드)`, 'success');
                 
                 // 기록 목록 새로고침
                 await this.loadRecords();
             } else {
-                throw new Error(data.error || data.detail || '저장 실패');
+                throw new Error(data.detail || data.error || data.message || `HTTP ${response.status}: ${response.statusText}`);
             }
         } catch (error) {
             console.error('Error saving records:', error);
@@ -1331,16 +1346,12 @@ class SlideScribeApp {
 
     async loadRecordContent(recordId) {
         try {
-            console.log('=== loadRecordContent ===');
-            console.log(`Loading record "${recordId}" for lecture "${this.timerState.currentLecture}"`);
-            
             if (!this.timerState.currentLecture) {
                 throw new Error('No lecture selected');
             }
             
             // Handle "new" record case - don't try to load anything
             if (recordId === 'new') {
-                console.log('Starting new session - no content to load');
                 this.slides = [];
                 this.timerState.slides = [];
                 this.timerState.currentRecord = recordId;
@@ -1360,14 +1371,12 @@ class SlideScribeApp {
             const data = await response.json();
             
             if (data.success && data.record && data.record.records) {
-                console.log(`Loaded ${data.record.records.length} slides from GitHub`);
                 this.slides = data.record.records;
                 this.timerState.slides = [...this.slides];
                 this.timerState.currentRecord = recordId;
                 this.updateSlidesTable();
                 this.updateRecordCount();
-                this.showToast(`기록 "${data.record.session_name}" 로드됨 (${recordData.length}개 슬라이드)`, 'success');
-                console.log('Record loaded successfully:', recordData);
+                this.showToast(`기록 "${data.record.session_name}" 로드됨 (${data.record.records.length}개 슬라이드)`, 'success');
             } else {
                 throw new Error('기록을 찾을 수 없습니다');
             }
@@ -1539,8 +1548,8 @@ class SlideScribeApp {
         // Sync both lecture variables
         this.timerState.currentLecture = this.currentLecture;
         
-        // Update selection info
-        document.getElementById('selectedLecture').textContent = this.currentLecture;
+        // Update selection info - 강의 ID 대신 강의명 표시
+        document.getElementById('selectedLecture').textContent = this.timerState.currentLectureName || this.currentLecture;
         
         // Animate transition
         await this.animateStepTransition('lectureSelectionStep', 'recordSelectionStep');
@@ -1552,22 +1561,26 @@ class SlideScribeApp {
     }
 
     async proceedToTimer() {
-        console.log('=== proceedToTimer called ===');
-        console.log('this.currentRecord:', this.currentRecord);
-        console.log('this.timerState.currentRecord:', this.timerState.currentRecord);
-        console.log('this.currentLecture:', this.currentLecture);
-        console.log('this.timerState.currentLecture:', this.timerState.currentLecture);
-        
         // Sync record variables
         this.timerState.currentRecord = this.currentRecord;
         
-        // Update selection info - 새 기록일 때 '새 기록'으로 표시
-        const recordText = this.currentRecord === 'new' ? '새 기록' : this.currentRecord;
-        document.getElementById('selectedRecord').textContent = recordText;
+        // 기록 이름 찾기
+        let recordName = '새 기록';
+        
+        if (this.currentRecord !== 'new') {
+            // recordSelect에서 선택된 옵션의 텍스트 가져오기
+            const recordSelect = document.getElementById('recordSelect');
+            const selectedOption = recordSelect.querySelector(`option[value="${this.currentRecord}"]`);
+            if (selectedOption) {
+                recordName = selectedOption.textContent;
+            }
+        }
+        
+        // Update selection info - 사용자 친화적인 이름으로 표시
+        document.getElementById('selectedRecord').textContent = recordName;
         
         // Load record content if existing record selected
         if (this.currentRecord !== 'new') {
-            console.log('Loading existing record:', this.currentRecord);
             await this.loadRecordContent(this.currentRecord);
             
             // 기존 기록이 로드된 후, 마지막 슬라이드의 END TIME으로 타이머 설정
@@ -1585,12 +1598,10 @@ class SlideScribeApp {
                         startTimeInput.value = endTime;
                     }
                     
-                    console.log('Timer set to last slide END TIME:', endTime);
                     this.showToast(`타이머가 마지막 기록 시간(${endTime})으로 설정되었습니다.`, 'info');
                 }
             }
         } else {
-            console.log('Starting new session - clearing slides');
             // For new records, clear slides and reset timer
             this.slides = [];
             this.timerState.slides = [];
