@@ -1173,77 +1173,32 @@ class SlideScribeApp {
             const timestamp = new Date();
             const recordName = `${sessionName}_${timestamp.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}`;
             
-            // 슬라이드 데이터 유효성 검사 및 정규화
-            const validatedSlides = this.slides.map((slide, index) => {
-                const validatedSlide = {
-                    slide_title: String(slide.slide_title || `슬라이드 ${index + 1}`).trim(),
-                    slide_number: slide.slide_number ? String(slide.slide_number) : String(index + 1),
-                    start_time: String(slide.start_time || '00:00:00.000'),
-                    end_time: String(slide.end_time || '00:00:00.000'),
-                    notes: String(slide.notes || '').trim()
-                };
-                
-                console.log(`슬라이드 ${index + 1} 유효성 검사:`, {
-                    원본: slide,
-                    검증된것: validatedSlide
-                });
-                
-                return validatedSlide;
-            });
-            
-            // 전송할 데이터 준비
-            const requestData = {
-                session_name: String(recordName).trim(),
-                lecture_name: String(this.timerState.currentLectureName || sessionName).trim(),
-                updated_at: new Date().toISOString(),
-                records: validatedSlides
+            // 백엔드 TimerSession 모델에 맞는 데이터 구조 생성
+            const sessionData = {
+                lecture_name: recordName,  // session_name 대신 lecture_name 사용
+                records: this.slides,      // SlideRecord 배열 (이미 올바른 구조)
+                created_at: timestamp.toISOString(),
+                updated_at: timestamp.toISOString()
             };
             
-            // 디버깅을 위한 로깅 추가
-            console.log('=== saveRecords 디버깅 정보 ===');
-            console.log('강의 ID:', this.timerState.currentLecture);
-            console.log('사용자명:', this.userState.currentUser.username);
-            console.log('전송할 데이터:', JSON.stringify(requestData, null, 2));
-            console.log('슬라이드 개수:', validatedSlides.length);
-            console.log('슬라이드 샘플:', validatedSlides.slice(0, 2));
-            
-            // URL 유효성 검사
-            const url = `/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`;
-            console.log('요청 URL:', url);
-            
             // GitHub API를 통해 저장
-            const response = await fetch(url, {
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(requestData)
+                body: JSON.stringify(sessionData)
             });
 
-            console.log('응답 상태:', response.status);
-            console.log('응답 헤더:', response.headers);
-            
-            // 응답이 JSON이 아닐 수도 있으므로 텍스트로 먼저 읽어보기
-            const responseText = await response.text();
-            console.log('응답 텍스트:', responseText);
-            
-            let data;
-            try {
-                data = JSON.parse(responseText);
-            } catch (parseError) {
-                console.error('JSON 파싱 실패:', parseError);
-                throw new Error(`서버 응답을 파싱할 수 없습니다: ${responseText.slice(0, 200)}`);
-            }
-            
-            console.log('응답 데이터:', data);
+            const data = await response.json();
 
             if (data.success) {
-                this.showToast(`기록이 성공적으로 저장되었습니다 (${validatedSlides.length}개 슬라이드)`, 'success');
+                this.showToast(`기록이 성공적으로 저장되었습니다 (${this.slides.length}개 슬라이드)`, 'success');
                 
                 // 기록 목록 새로고침
                 await this.loadRecords();
             } else {
-                throw new Error(data.error || data.message || '저장 실패');
+                throw new Error(data.error || data.detail || '저장 실패');
             }
         } catch (error) {
             console.error('Error saving records:', error);
