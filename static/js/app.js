@@ -1189,8 +1189,7 @@ class SlideScribeApp {
                 updated_at: timestamp.toISOString()
             };
             
-            // 강의명 기반 URL 사용
-            const url = `/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLectureName}/timer-records`;
+            const url = `/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records`;
             
             // GitHub API를 통해 저장
             const response = await fetch(url, {
@@ -1301,19 +1300,19 @@ class SlideScribeApp {
         return await this.loadLecturesGeneric('parserLectureSelect');
     }
 
-    async onLectureSelectChange(lectureName) {
+    async onLectureSelectChange(lectureId) {
         const lectureSelect = document.getElementById('lectureSelect');
         const selectedOption = lectureSelect.selectedOptions[0];
-        const lectureDisplayName = selectedOption ? selectedOption.dataset.lectureName : '';
+        const lectureName = selectedOption ? selectedOption.dataset.lectureName : '';
         
-        this.currentLecture = lectureName; // 강의명 사용
-        this.timerState.currentLecture = lectureName; // 강의명 사용
-        this.timerState.currentLectureName = lectureDisplayName || lectureName; // 강의명 저장
+        this.currentLecture = lectureId; // 강의 ID 사용
+        this.timerState.currentLecture = lectureId; // 강의 ID 사용
+        this.timerState.currentLectureName = lectureName; // 강의명 저장
         
         const selectBtn = document.getElementById('selectLectureBtn');
-        selectBtn.disabled = !lectureName;
+        selectBtn.disabled = !lectureId;
         
-        if (lectureName) {
+        if (lectureId) {
             this.loadRecords(); // Load records for this lecture
         }
     }
@@ -1323,11 +1322,11 @@ class SlideScribeApp {
             this.clearRecordSelect();
             return [];
         }
-        return await this.loadRecordsGeneric(this.timerState.currentLectureName, 'recordSelect', '새 기록 시작', 'new');
+        return await this.loadRecordsGeneric(this.timerState.currentLecture, 'recordSelect', '새 기록 시작', 'new');
     }
 
-    async loadRecordsGeneric(lectureName, selectElementId, defaultOptionText, defaultOption = '') {
-        if (!lectureName) {
+    async loadRecordsGeneric(lectureId, selectElementId, defaultOptionText, defaultOption = '') {
+        if (!lectureId) {
             const select = document.getElementById(selectElementId);
             if (select) {
                 select.innerHTML = `<option value="${defaultOption}">${defaultOptionText}</option>`;
@@ -1342,8 +1341,8 @@ class SlideScribeApp {
                 return [];
             }
 
-            // GitHub API에서 해당 강의의 기록들을 로드 - 강의명 사용
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${lectureName}/timer-records`);
+            // GitHub API에서 해당 강의의 기록들을 로드
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${lectureId}/timer-records`);
             
             if (!response.ok) {
                 throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
@@ -1355,7 +1354,7 @@ class SlideScribeApp {
             const select = document.getElementById(selectElementId);
             if (select) {
                 select.innerHTML = `<option value="${defaultOption}">${defaultOptionText}</option>`;
-            
+                
                 records.forEach(record => {
                     const option = document.createElement('option');
                     option.value = record.id;
@@ -1409,8 +1408,8 @@ class SlideScribeApp {
                 return;
             }
             
-            // GitHub API에서 기록 내용 로드 - 강의명 사용
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLectureName}/timer-records/${recordId}`);
+            // GitHub API에서 기록 내용 로드
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.timerState.currentLecture}/timer-records/${recordId}`);
             
             if (!response.ok) {
                 throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
@@ -2160,21 +2159,13 @@ class SlideScribeApp {
     }
     
     async loadRecordsForParser() {
-        return await this.loadRecordsGeneric(this.srtParser.selectedLectureName, 'parserRecordSelect', '타이머 기록을 선택하세요...', '');
+        return await this.loadRecordsGeneric(this.srtParser.selectedLecture, 'parserRecordSelect', '타이머 기록을 선택하세요...', '');
     }
 
     onParserRecordSelectChange(recordFile) {
         console.log('Parser 기록 선택:', recordFile);
         this.srtParser.selectedRecord = recordFile;
         console.log('srtParser.selectedRecord 설정됨:', this.srtParser.selectedRecord);
-        
-        // 기록 세부 정보 로그
-        const recordSelect = document.getElementById('parserRecordSelect');
-        const selectedOption = recordSelect.querySelector(`option[value="${recordFile}"]`);
-        if (selectedOption) {
-            console.log('선택된 기록 텍스트:', selectedOption.textContent);
-        }
-        
         const selectBtn = document.getElementById('selectParserRecordBtn');
         selectBtn.disabled = !recordFile;
     }
@@ -2284,18 +2275,10 @@ class SlideScribeApp {
                 return;
             }
 
-            // 강의명과 기록명 가져오기
-            const lectureName = this.srtParser.selectedLectureName;
+            console.log('파싱 시작:', this.srtParser.selectedLecture, this.srtParser.selectedRecord);
             
-            // 기록명 가져오기
-            const recordSelect = document.getElementById('parserRecordSelect');
-            const selectedOption = recordSelect.querySelector(`option[value="${this.srtParser.selectedRecord}"]`);
-            const recordName = selectedOption ? selectedOption.textContent : this.srtParser.selectedRecord;
-            
-            // GitHub API에서 타이머 기록 로드 - 강의명과 기록명 사용
-            const apiUrl = `/api/users/${this.userState.currentUser.username}/lectures/${lectureName}/timer-records/${recordName}`;
-            
-            const response = await fetch(apiUrl);
+            // GitHub API에서 타이머 기록 로드
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.srtParser.selectedLecture}/timer-records/${this.srtParser.selectedRecord}`);
             
             if (!response.ok) {
                 throw new Error(`API 호출 실패: ${response.status} ${response.statusText}`);
@@ -2327,6 +2310,344 @@ class SlideScribeApp {
         } catch (error) {
             console.error('Error parsing files locally:', error);
             this.showToast(error.message || '파일 파싱 실패', 'error');
+        }
+    }
+    
+    parseSrtContent(srtContent) {
+        const lines = srtContent.split('\n');
+        const subtitles = [];
+        let currentSubtitle = {};
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (!line) {
+                if (currentSubtitle.text) {
+                    subtitles.push(currentSubtitle);
+                    currentSubtitle = {};
+                }
+                continue;
+            }
+            
+            if (/^\d+$/.test(line)) {
+                currentSubtitle.index = parseInt(line);
+            } else if (/^\d{2}:\d{2}:\d{2},\d{3}\s*-->\s*\d{2}:\d{2}:\d{2},\d{3}$/.test(line)) {
+                const [start, end] = line.split(' --> ');
+                currentSubtitle.start_time = this.parseTimeToMs(start);
+                currentSubtitle.end_time = this.parseTimeToMs(end);
+                currentSubtitle.start = start;
+                currentSubtitle.end = end;
+            } else if (currentSubtitle.start && !currentSubtitle.text) {
+                currentSubtitle.text = line;
+            } else if (currentSubtitle.text) {
+                // Append additional text lines
+                currentSubtitle.text += ' ' + line;
+            }
+        }
+        
+        // Add last subtitle if exists
+        if (currentSubtitle.text) {
+            subtitles.push(currentSubtitle);
+        }
+        
+        return subtitles;
+    }
+    
+    parseTimeToMs(timeStr) {
+        // Convert "HH:MM:SS,mmm" to milliseconds
+        const [time, ms] = timeStr.split(',');
+        const [hours, minutes, seconds] = time.split(':').map(Number);
+        return (hours * 3600 + minutes * 60 + seconds) * 1000 + parseInt(ms);
+    }
+    
+    matchTimerWithSrt(timerRecord, subtitles) {
+        const results = [];
+        
+        for (const slide of timerRecord) {
+            const slideStartMs = this.parseTime(slide.start_time);
+            const slideEndMs = this.parseTime(slide.end_time);
+            
+            // Find SRT subtitles that overlap with this slide's time range
+            const matchingSubtitles = subtitles.filter(subtitle => {
+                return (subtitle.start_time < slideEndMs && subtitle.end_time > slideStartMs);
+            });
+            
+            // Combine text from matching subtitles
+            const extractedText = matchingSubtitles
+                .map(subtitle => subtitle.text)
+                .join(' ')
+                .trim();
+            
+            results.push({
+                slide_number: slide.slide_number,
+                slide_title: slide.slide_title || 'Untitled',
+                start_time: slide.start_time,
+                end_time: slide.end_time,
+                notes: slide.notes || '',
+                text: extractedText || 'No matching text found',
+                matched_subtitles: matchingSubtitles.length
+            });
+        }
+        
+        return results;
+    }
+    
+    displayLocalResults(results) {
+        const container = document.getElementById('resultsContainer');
+        if (!container) return;
+        
+        if (!results || results.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <p>No slides found to process</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = `
+            <div class="results-header">
+                <h4>Parsing Results</h4>
+                <div class="results-meta">
+                    <span class="meta-item"><i class="fas fa-list"></i> ${results.length} slides</span>
+                    <span class="meta-item"><i class="fas fa-clock"></i> ${new Date().toLocaleString()}</span>
+                </div>
+            </div>
+            <div class="results-content">
+                ${results.map((result, index) => `
+                    <div class="result-slide" data-slide-index="${index}">
+                        <div class="slide-header">
+                            <div class="slide-info">
+                                <span class="slide-title slide-title-editable" contenteditable="true" data-field="title">${result.slide_title}</span>
+                                <span class="slide-number">Slide ${result.slide_number}</span>
+                            </div>
+                            <div class="slide-time">
+                                <span class="time-range">${result.start_time} → ${result.end_time}</span>
+                                <small class="subtitle-count">${result.matched_subtitles} subtitles</small>
+                            </div>
+                        </div>
+                        <div class="slide-content">
+                            <div class="slide-notes slide-notes-editable" contenteditable="true" data-field="notes">
+                                <strong>Notes:</strong> ${result.notes || ''}
+                            </div>
+                            <div class="slide-text" style="position: relative;">
+                                <label>Extracted Text:</label>
+                                <button class="copy-button" onclick="app.copyText(this)" data-text="${result.text.replace(/"/g, '&quot;')}">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <textarea class="result-text-area" rows="4" data-field="text">${result.text}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        
+        // Setup content editing listeners
+        this.setupResultsEditingListeners();
+        
+        // Store results for export
+        this.srtParser.parseResults = results;
+        
+        // Enable export button
+        const exportBtn = document.getElementById('exportResultsBtn');
+        if (exportBtn) {
+            exportBtn.disabled = false;
+        }
+    }
+    
+    changeSrtFile() {
+        this.resetToSrtFileUpload();
+    }
+    
+    resetToSrtFileUpload() {
+        // Hide interface
+        document.getElementById('parserInterface').style.display = 'none';
+        
+        // Show SRT upload step
+        const srtStep = document.getElementById('srtFileUploadStep');
+        srtStep.style.display = 'block';
+        srtStep.classList.add('step-entering');
+        
+        setTimeout(() => {
+            srtStep.classList.remove('step-entering');
+        }, 500);
+        
+        this.srtParser.currentStep = 'srtUpload';
+        this.srtParser.selectedFile = null;
+        
+        // Reset upload area
+        const uploadArea = document.getElementById('srtUploadArea');
+        const uploadBtn = document.getElementById('uploadSrtBtn');
+        const fileInput = document.getElementById('srtFileInput');
+        
+        uploadArea.classList.remove('file-selected');
+        uploadArea.innerHTML = `
+            <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <div class="upload-text">
+                <h5>SRT 파일을 여기에 드래그하세요</h5>
+                <p>또는 <span class="upload-link">browse files</span></p>
+                <small>SRT 파일만 허용됩니다</small>
+            </div>
+        `;
+        
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-arrow-right"></i> Continue to Parse';
+        fileInput.value = '';
+        
+        // Update selection info
+        document.getElementById('selectedSrtFile').textContent = '-';
+        
+        // Clear previews and results
+        this.updateSrtPreview('');
+        this.clearSrtResults();
+    }
+    
+    resetToParserRecordSelection() {
+        // Hide SRT upload and interface
+        document.getElementById('srtFileUploadStep').style.display = 'none';
+        document.getElementById('parserInterface').style.display = 'none';
+        
+        // Show record selection
+        const recordStep = document.getElementById('parserRecordSelectionStep');
+        recordStep.style.display = 'block';
+        recordStep.classList.add('step-entering');
+        
+        setTimeout(() => {
+            recordStep.classList.remove('step-entering');
+        }, 500);
+        
+        this.srtParser.currentStep = 'record';
+        this.srtParser.selectedRecord = '';
+        this.srtParser.selectedFile = null;
+        
+        // Reset record selection
+        document.getElementById('parserRecordSelect').value = '';
+        document.getElementById('selectParserRecordBtn').disabled = true;
+        
+        // Update selection info
+        document.getElementById('selectedParserRecord').textContent = '-';
+        document.getElementById('selectedSrtFile').textContent = '-';
+        
+        // Reset SRT upload area (call the reset function)
+        this.resetSrtUploadArea();
+        
+        // Clear previews and results
+        this.updateSrtPreview('');
+        this.clearSrtResults();
+    }
+    
+    resetToParserLectureSelection() {
+        // Hide all steps and selection info
+        document.getElementById('parserSelectionInfo').style.display = 'none';
+        document.getElementById('parserRecordSelectionStep').style.display = 'none';
+        document.getElementById('srtFileUploadStep').style.display = 'none';
+        document.getElementById('parserInterface').style.display = 'none';
+        
+        // Show lecture selection
+        const lectureStep = document.getElementById('parserLectureSelectionStep');
+        lectureStep.style.display = 'block';
+        lectureStep.classList.add('step-entering');
+        
+        setTimeout(() => {
+            lectureStep.classList.remove('step-entering');
+        }, 500);
+        
+        this.srtParser.currentStep = 'lecture';
+        this.srtParser.selectedLecture = '';
+        this.srtParser.selectedRecord = '';
+        this.srtParser.selectedFile = null;
+        
+        // Reset form
+        document.getElementById('parserLectureSelect').value = '';
+        document.getElementById('selectParserLectureBtn').disabled = true;
+        
+        // Reset SRT upload area
+        this.resetSrtUploadArea();
+        
+        // Clear previews and results
+        this.updateTimerPreview('');
+        this.updateSrtPreview('');
+        this.clearSrtResults();
+    }
+    
+    resetSrtUploadArea() {
+        const uploadArea = document.getElementById('srtUploadArea');
+        const uploadBtn = document.getElementById('uploadSrtBtn');
+        const fileInput = document.getElementById('srtFileInput');
+        
+        if (uploadArea) {
+            uploadArea.classList.remove('file-selected');
+            uploadArea.innerHTML = `
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="upload-text">
+                    <h5>SRT 파일을 여기에 드래그하세요</h5>
+                    <p>또는 <span class="upload-link">browse files</span></p>
+                    <small>SRT 파일만 허용됩니다</small>
+                </div>
+            `;
+        }
+        
+        if (uploadBtn) {
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<i class="fas fa-arrow-right"></i> Continue to Parse';
+        }
+        
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+    
+    // Methods to change selection (called from header buttons)
+    changeParserLecture() {
+        this.resetToParserLectureSelection();
+    }
+
+    changeParserRecord() {
+        this.resetToParserRecordSelection();
+    }
+
+    // ===== HOME TAB FUNCTIONALITY =====
+    
+    setupHomeListeners() {
+        // 더 이상 복잡한 Home 기능이 없으므로 간단하게 유지
+        console.log('Home listeners set up');
+    }
+
+    // ===== SETTINGS TAB METHODS =====
+    
+    async loadLecturesForSettings() {
+        console.log('Loading lectures for settings...'); // 디버깅 로그 추가
+        try {
+            // Use localStorage instead of API
+            const lectures = this.getStoredLectures();
+            console.log('Found lectures:', lectures); // 디버깅 로그 추가
+            
+            const jsonLectureSelect = document.getElementById('jsonLectureSelect');
+            console.log('jsonLectureSelect element:', jsonLectureSelect); // 디버깅 로그 추가
+            
+            if (jsonLectureSelect) {
+                jsonLectureSelect.innerHTML = '<option value="">강의를 선택하세요</option>';
+                lectures.forEach(lecture => {
+                    const option = document.createElement('option');
+                    option.value = lecture;
+                    option.textContent = lecture;
+                    jsonLectureSelect.appendChild(option);
+                    console.log('Added lecture option:', lecture); // 디버깅 로그 추가
+                });
+            } else {
+                console.error('jsonLectureSelect element not found!');
+            }
+        } catch (error) {
+            console.error('Error loading lectures for settings:', error);
+            this.showToast('Failed to load lectures', 'error');
         }
     }
     
