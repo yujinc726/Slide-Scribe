@@ -726,16 +726,16 @@ p {
     letter-spacing: 0.3px;
 }
 
-/* Clean Form Labels */
-.form-group label {
-    font-size: 11px;
-    font-weight: 600;
+/* Clean Form Labels - Exclude Timer interface */
+.form-group label:not(.timer-interface .form-group label) {
+    font-size: 14px;
+    font-weight: 500;
     color: var(--text-primary);
     margin-bottom: var(--spacing-xs);
     display: block;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    opacity: 0.8;
+    text-transform: none;
+    letter-spacing: normal;
+    opacity: 1;
 }
 
 textarea.form-control {
@@ -3306,4 +3306,29 @@ input:checked + .switch-slider:before {
 [data-theme="dark"] .btn-lecture-delete {
     background: rgba(220, 53, 69, 0.2);
     border-color: rgba(220, 53, 69, 0.3);
+}
+
+/* Timer specific form labels - Higher specificity to override general form labels */
+.timer-interface .slide-title-group label,
+.timer-interface .slide-number-group label,
+.timer-interface .form-group label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.8;
+}
+
+/* Settings and other form labels */
+.settings-group .form-group label,
+.lecture-form .form-group label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-transform: none;
+    letter-spacing: normal;
+    opacity: 1;
 }
