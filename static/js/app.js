@@ -4308,21 +4308,34 @@ class SlideScribeApp {
             return;
         }
 
-        try {
-            // 파일 읽기
-            const fileContent = await this.readFileAsText(file);
-            
-            // JSON 구조 검증
-            const jsonData = JSON.parse(fileContent);
-            const validationResult = this.validateTimerRecordJson(jsonData);
-            
-            if (!validationResult.isValid) {
-                this.showToast(`잘못된 JSON 구조: ${validationResult.error}`, 'error');
-                return;
-            }
+        if (!this.currentLectureForRecords) {
+            this.showToast('강의 정보가 없습니다', 'error');
+            return;
+        }
 
-            // 기록 업로드
-            await this.uploadTimerRecord(file.name, jsonData);
+        try {
+            // FormData 생성하여 실제 파일 업로드
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.currentLectureForRecords.id}/timer-records/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.showToast(`"${file.name}" 업로드 완료`, 'success');
+                
+                // 업로드 영역 리셋
+                this.resetRecordUploadArea();
+                
+                // 기록 목록 자동 새로고침
+                await this.loadTimerRecords();
+            } else {
+                this.showToast(result.detail || '업로드 실패', 'error');
+            }
 
         } catch (error) {
             console.error('File upload error:', error);
@@ -4383,23 +4396,16 @@ class SlideScribeApp {
         }
 
         try {
-            // 세션 이름 설정 (파일명에서 확장자 제거)
-            const sessionName = fileName.replace(/\.[^/.]+$/, "");
+            // FormData 생성하여 파일 업로드
+            const formData = new FormData();
             
-            // 타이머 세션 객체 생성
-            const timerSession = {
-                lecture_name: sessionName,
-                records: data.records || data, // data가 배열이면 직접 사용, 객체면 records 속성 사용
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
+            // JSON 데이터를 Blob으로 변환하여 파일로 업로드
+            const jsonBlob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            formData.append('file', jsonBlob, fileName);
 
-            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.currentLectureForRecords.id}/timer-records`, {
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${this.currentLectureForRecords.id}/timer-records/upload`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(timerSession)
+                body: formData
             });
 
             const result = await response.json();

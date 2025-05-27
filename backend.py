@@ -1741,5 +1741,103 @@ async def get_github_directory_contents(dir_path: str) -> List[str]:
         print(f"GitHub 디렉토리 내용 가져오기 오류: {e}")
         return []
 
+@app.post("/api/users/{username}/lectures/{lecture_id}/timer-records/upload")
+async def upload_user_timer_record(username: str, lecture_id: str, file: UploadFile = File(...)):
+    """사용자의 특정 강의에 타이머 기록 JSON 파일을 업로드합니다."""
+    try:
+        # 파일 형식 검증
+        if not file.filename.endswith('.json'):
+            raise HTTPException(status_code=400, detail="JSON 파일만 업로드 가능합니다")
+        
+        # 파일 내용 읽기 및 검증
+        content = await file.read()
+        try:
+            json_content = content.decode('utf-8')
+            json_data = json.loads(json_content)
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="올바르지 않은 파일 인코딩입니다. UTF-8로 인코딩된 JSON 파일을 사용하세요")
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"올바르지 않은 JSON 형식입니다: {str(e)}")
+        
+        # JSON 구조 검증 (타이머 기록용)
+        if isinstance(json_data, dict) and 'records' in json_data:
+            # 표준 타이머 세션 형식
+            records = json_data['records']
+            session_name = json_data.get('session_name', json_data.get('lecture_name', Path(file.filename).stem))
+        elif isinstance(json_data, list):
+            # 기록 배열 형식
+            records = json_data
+            session_name = Path(file.filename).stem
+        else:
+            raise HTTPException(status_code=400, detail="올바르지 않은 JSON 구조입니다. 'records' 필드가 있는 객체이거나 기록 배열이어야 합니다")
+        
+        # 기록 구조 검증
+        required_fields = ['slide_title', 'slide_number', 'start_time', 'end_time']
+        for i, record in enumerate(records):
+            if not isinstance(record, dict):
+                raise HTTPException(status_code=400, detail=f"기록 {i+1}이 올바른 객체가 아닙니다")
+            for field in required_fields:
+                if field not in record:
+                    raise HTTPException(status_code=400, detail=f"기록 {i+1}에서 필수 필드가 누락되었습니다: {field}")
+        
+        # 강의 존재 확인
+        current_data = await load_user_data_from_github(username, "lectures")
+        if not current_data:
+            user_dir = get_user_data_dir(username)
+            lectures_file = user_dir / "lectures.json"
+            
+            if lectures_file.exists():
+                with open(lectures_file, 'r', encoding='utf-8') as f:
+                    current_data = json.load(f)
+            else:
+                raise HTTPException(status_code=404, detail="강의 목록을 찾을 수 없습니다")
+        
+        # 강의 찾기
+        lectures = current_data.get("lectures", [])
+        target_lecture = None
+        
+        for lecture in lectures:
+            if lecture.get("id") == lecture_id:
+                target_lecture = lecture
+                break
+        
+        if not target_lecture:
+            raise HTTPException(status_code=404, detail="강의를 찾을 수 없습니다")
+        
+        # 타이머 기록 데이터 준비
+        record_id = str(uuid.uuid4())
+        timer_record = {
+            "id": record_id,
+            "lecture_id": lecture_id,
+            "lecture_name": target_lecture.get("name", ""),
+            "session_name": session_name,
+            "records": records,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "uploaded_from": file.filename
+        }
+        
+        # 독립된 JSON 파일로 저장
+        github_success = await save_timer_record_file(username, lecture_id, record_id, timer_record)
+        
+        return {
+            "success": True,
+            "message": f"JSON 파일 '{file.filename}'이 성공적으로 업로드되었습니다",
+            "timer_record": {
+                "id": record_id,
+                "session_name": session_name,
+                "created_at": timer_record["created_at"],
+                "updated_at": timer_record["updated_at"],
+                "records_count": len(records),
+                "uploaded_from": file.filename
+            },
+            "github_sync": github_success
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"타이머 기록 저장 실패: {str(e)}")
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True) 
