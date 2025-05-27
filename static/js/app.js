@@ -364,7 +364,9 @@ class SlideScribeApp {
         } else if (tabName === 'home') {
             this.initializeHomeTab();
         } else if (tabName === 'settings') {
-            this.initializeSettingsTab();
+            this.initializeSettingsTab().catch(error => {
+                console.error('Settings tab initialization failed:', error);
+            });
         }
     }
 
@@ -388,10 +390,251 @@ class SlideScribeApp {
         this.updateHomeStats();
     }
 
-    initializeSettingsTab() {
-        // Settings 탭 초기화 - 강의 목록 로드 및 설정 로드
-        this.loadLecturesForSettings();
+    async initializeSettingsTab() {
         this.loadPreferences();
+        
+        // 사용자가 로그인한 경우에만 강의 관리 섹션 표시
+        if (this.userState.isLoggedIn) {
+            await this.initializeLectureManagement();
+        } else {
+            this.hideLectureManagement();
+        }
+    }
+
+    async initializeLectureManagement() {
+        const lectureManagementCard = document.getElementById('lectureManagementCard');
+        if (lectureManagementCard) {
+            lectureManagementCard.style.display = 'block';
+        }
+
+        // GitHub 동기화 상태 확인
+        await this.checkSyncStatus();
+        
+        // 사용자 강의 목록 로드
+        await this.loadUserLectures();
+    }
+
+    hideLectureManagement() {
+        const lectureManagementCard = document.getElementById('lectureManagementCard');
+        if (lectureManagementCard) {
+            lectureManagementCard.style.display = 'none';
+        }
+    }
+
+    async checkSyncStatus() {
+        const syncIndicator = document.getElementById('syncIndicator');
+        const syncStatus = document.getElementById('syncStatus');
+        
+        if (!syncIndicator || !syncStatus) return;
+
+        try {
+            // 연결 확인 중 상태 표시
+            syncIndicator.className = 'sync-indicator checking';
+            syncStatus.textContent = '연결 확인 중...';
+
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/sync-status`);
+            const data = await response.json();
+
+            if (data.github_configured && data.github_connected) {
+                syncIndicator.className = 'sync-indicator connected';
+                syncStatus.textContent = 'GitHub 동기화 활성화';
+            } else if (data.github_configured) {
+                syncIndicator.className = 'sync-indicator disconnected';
+                syncStatus.textContent = 'GitHub 연결 오류';
+            } else {
+                syncIndicator.className = 'sync-indicator disconnected';
+                syncStatus.textContent = 'GitHub 미설정 (로컬 백업만)';
+            }
+        } catch (error) {
+            console.error('Sync status check failed:', error);
+            syncIndicator.className = 'sync-indicator disconnected';
+            syncStatus.textContent = '연결 상태 확인 실패';
+        }
+    }
+
+    async loadUserLectures() {
+        const userLectureList = document.getElementById('userLectureList');
+        if (!userLectureList) return;
+
+        try {
+            // 로딩 상태 표시
+            userLectureList.innerHTML = `
+                <div class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    강의 목록을 불러오는 중...
+                </div>
+            `;
+
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures`);
+            const data = await response.json();
+
+            const lectures = data.lectures || [];
+
+            if (lectures.length === 0) {
+                userLectureList.innerHTML = `
+                    <div class="empty-lectures">
+                        <i class="fas fa-book-open"></i>
+                        <p>아직 생성된 강의가 없습니다</p>
+                        <small>새 강의를 추가하여 시작해보세요</small>
+                    </div>
+                `;
+                return;
+            }
+
+            // 강의 목록 렌더링
+            userLectureList.innerHTML = lectures.map(lecture => this.renderLectureItem(lecture)).join('');
+
+            // 강의 액션 버튼 이벤트 리스너 추가
+            this.attachLectureEventListeners();
+
+        } catch (error) {
+            console.error('Failed to load user lectures:', error);
+            userLectureList.innerHTML = `
+                <div class="empty-lectures">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>강의 목록을 불러올 수 없습니다</p>
+                    <small>네트워크 연결을 확인해주세요</small>
+                </div>
+            `;
+        }
+    }
+
+    renderLectureItem(lecture) {
+        const createdDate = new Date(lecture.created_at).toLocaleDateString('ko-KR');
+        const timerRecordsCount = lecture.timer_records ? lecture.timer_records.length : 0;
+        
+        return `
+            <div class="lecture-item" data-lecture-id="${lecture.id}">
+                <div class="lecture-info">
+                    <h4 class="lecture-name">${this.escapeHtml(lecture.name)}</h4>
+                    <div class="lecture-meta">
+                        <span><i class="fas fa-calendar-alt"></i> ${createdDate}</span>
+                        <span><i class="fas fa-clock"></i> ${timerRecordsCount}개 기록</span>
+                        <span><i class="fas fa-tag"></i> ID: ${lecture.id.slice(0, 8)}</span>
+                    </div>
+                </div>
+                <div class="lecture-actions">
+                    <button class="btn-lecture-action btn-lecture-edit" 
+                            onclick="window.app.editLecture('${lecture.id}')" 
+                            title="강의 편집">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-lecture-action btn-lecture-delete" 
+                            onclick="window.app.deleteLecture('${lecture.id}', '${this.escapeHtml(lecture.name)}')" 
+                            title="강의 삭제">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    attachLectureEventListeners() {
+        // 이벤트 위임을 통해 동적으로 생성된 요소에 이벤트 리스너 추가
+        const userLectureList = document.getElementById('userLectureList');
+        if (!userLectureList) return;
+
+        userLectureList.addEventListener('click', (e) => {
+            const target = e.target.closest('.btn-lecture-action');
+            if (!target) return;
+
+            const lectureItem = target.closest('.lecture-item');
+            const lectureId = lectureItem?.dataset.lectureId;
+            
+            if (!lectureId) return;
+
+            if (target.classList.contains('btn-lecture-edit')) {
+                this.editLecture(lectureId);
+            } else if (target.classList.contains('btn-lecture-delete')) {
+                const lectureName = lectureItem.querySelector('.lecture-name')?.textContent || '';
+                this.deleteLecture(lectureId, lectureName);
+            }
+        });
+    }
+
+    async handleAddLecture() {
+        const nameInput = document.getElementById('newLectureName');
+        const addBtn = document.getElementById('addLectureBtn');
+
+        if (!nameInput || !this.userState.isLoggedIn) return;
+
+        const name = nameInput.value.trim();
+
+        if (!name) {
+            this.showToast('강의명을 입력해주세요', 'warning');
+            nameInput.focus();
+            return;
+        }
+
+        try {
+            // 버튼 로딩 상태
+            addBtn.disabled = true;
+            addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 추가 중...';
+
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.showToast(result.message, 'success');
+                
+                // 입력 필드 초기화
+                nameInput.value = '';
+                
+                // 강의 목록 새로고침
+                await this.loadUserLectures();
+            } else {
+                this.showToast(result.detail || '강의 생성에 실패했습니다', 'error');
+            }
+        } catch (error) {
+            console.error('Add lecture error:', error);
+            this.showToast('강의 생성 중 오류가 발생했습니다', 'error');
+        } finally {
+            // 버튼 상태 복원
+            addBtn.disabled = false;
+            addBtn.innerHTML = '<i class="fas fa-plus"></i> 추가';
+        }
+    }
+
+    async deleteLecture(lectureId, lectureName) {
+        if (!confirm(`"${lectureName}" 강의를 정말 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/users/${this.userState.currentUser.username}/lectures/${lectureId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.showToast(result.message, 'success');
+                await this.loadUserLectures();
+            } else {
+                this.showToast(result.detail || '강의 삭제에 실패했습니다', 'error');
+            }
+        } catch (error) {
+            console.error('Delete lecture error:', error);
+            this.showToast('강의 삭제 중 오류가 발생했습니다', 'error');
+        }
+    }
+
+    async editLecture(lectureId) {
+        // 향후 구현할 강의 편집 기능
+        this.showToast('강의 편집 기능은 곧 추가될 예정입니다', 'info');
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // ===== Timer Logic =====
@@ -3093,6 +3336,21 @@ class SlideScribeApp {
         const clearAllDataBtn = document.getElementById('clearAllDataBtn');
         if (clearAllDataBtn) {
             clearAllDataBtn.addEventListener('click', () => this.clearAllData());
+        }
+
+        // Lecture Management
+        const addLectureBtn = document.getElementById('addLectureBtn');
+        if (addLectureBtn) {
+            addLectureBtn.addEventListener('click', () => this.handleAddLecture());
+        }
+
+        const newLectureName = document.getElementById('newLectureName');
+        if (newLectureName) {
+            newLectureName.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.handleAddLecture();
+                }
+            });
         }
     }
 

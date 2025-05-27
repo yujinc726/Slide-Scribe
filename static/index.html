@@ -522,8 +522,49 @@
                     <h2><i class="fas fa-cog"></i> Settings</h2>
                 </div>
                 
-                <!-- App Preferences -->
+                <!-- User Lecture Management -->
                 <div class="content-grid">
+                    <div class="card" id="lectureManagementCard" style="display: none;">
+                        <div class="card-header">
+                            <h3><i class="fas fa-book"></i> 강의 관리</h3>
+                            <div class="sync-status">
+                                <span class="sync-indicator" id="syncIndicator">
+                                    <i class="fas fa-sync-alt"></i>
+                                    <span id="syncStatus">연결 확인 중...</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Add New Lecture -->
+                            <div class="lecture-add-section">
+                                <h5>새 강의 추가</h5>
+                                <div class="lecture-form">
+                                    <div class="form-row">
+                                        <div class="form-group flex-1">
+                                            <input type="text" id="newLectureName" class="form-control" placeholder="강의명을 입력하세요" maxlength="100">
+                                        </div>
+                                        <button class="btn btn-primary" id="addLectureBtn">
+                                            <i class="fas fa-plus"></i>
+                                            추가
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Lecture List -->
+                            <div class="lecture-list-section">
+                                <h5>내 강의 목록</h5>
+                                <div class="lecture-list" id="userLectureList">
+                                    <div class="loading-state">
+                                        <i class="fas fa-spinner fa-spin"></i>
+                                        강의 목록을 불러오는 중...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- App Preferences -->
                     <div class="card">
                         <div class="card-header">
                             <h3><i class="fas fa-sliders-h"></i> Preferences</h3>
