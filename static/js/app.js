@@ -1169,16 +1169,17 @@ class SlideScribeApp {
         try {
             const sessionName = this.timerState.currentLectureName || 'Unknown Lecture';
             
-            // 현재 시간으로 기록 이름 생성 - 사용자 친화적인 형식으로 변경
+            // 현재 시간으로 기록 이름 생성 - "강의명_YYYYMMDD_HHMMSS" 형식
             const timestamp = new Date();
             const year = timestamp.getFullYear();
             const month = (timestamp.getMonth() + 1).toString().padStart(2, '0');
             const day = timestamp.getDate().toString().padStart(2, '0');
             const hours = timestamp.getHours().toString().padStart(2, '0');
             const minutes = timestamp.getMinutes().toString().padStart(2, '0');
+            const seconds = timestamp.getSeconds().toString().padStart(2, '0');
             
-            // 사용자 친화적인 형식: "강의명 - YYYY년 MM월 DD일 HH시 MM분"
-            const recordName = `${sessionName} - ${year}년 ${month}월 ${day}일 ${hours}시 ${minutes}분`;
+            // 파일명 형식: "강의명_YYYYMMDD_HHMMSS"
+            const recordName = `${sessionName}_${year}${month}${day}_${hours}${minutes}${seconds}`;
             
             // 백엔드 TimerSession 모델에 맞는 데이터 구조 생성
             const sessionData = {
